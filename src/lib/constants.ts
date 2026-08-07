@@ -1,5 +1,11 @@
 export const MAX_RESPONDENTS_PER_SURVEY = 13;
 
+/** 전역 응답자 계정(회원가입) 최대 개수 */
+export const MAX_RESPONDENT_ACCOUNTS = 13;
+
+export const ACCOUNT_LIMIT_MESSAGE =
+  "응답자 계정은 최대 13개까지 만들 수 있습니다.";
+
 // 500KB = 500 * 1024 bytes
 export const MAX_FILE_SIZE = 500 * 1024;
 

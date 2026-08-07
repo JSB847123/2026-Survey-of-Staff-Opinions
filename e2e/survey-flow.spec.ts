@@ -3,9 +3,10 @@ import { buildDocx } from "../tests/helpers/build-files";
 
 /**
  * E2E 시나리오:
- * 1. 관리자 로그인 → 설문 업로드(자동 변환) → 편집/저장 → 게시 → 응답자 계정 생성
- * 2. 응답자 로그인 → 응답 작성 → 제출 → 재접속 시 중복 차단
- * 3. 확인자 로그인 → 응답 현황 확인 → AI 분석 페이지 접근 → 관리자 설정 접근 차단
+ * 1. 관리자(역할 선택 로그인) → 설문 업로드(자동 변환) → 저장 → 게시
+ * 2. 응답자 회원 가입(숫자 4자리 ID/PW) → 설문 목록 → 응답 → 제출 → 중복 차단
+ * 3. 확인자 로그인 → 응답 현황 → AI 분석 접근 → 관리자 설정 접근 차단
+ * 4. 정리(설문·계정 삭제)
  *
  * Access Code는 하드코딩하지 않고 환경변수에서 읽는다.
  */
@@ -18,19 +19,46 @@ const RESPONDENT_PW = "3456";
 let surveyUrl = ""; // /staff/surveys/[id]
 let respondentUrl = ""; // /s/[slug]
 
-async function staffLogin(page: Page, code: string) {
+async function staffLogin(page: Page, role: "admin" | "reviewer", code: string) {
   await page.goto("/staff/login");
+  await page
+    .getByRole("button", {
+      name: role === "admin" ? "관리자 로그인" : "확인자 로그인",
+    })
+    .click();
   await page.getByLabel("Access Code").fill(code);
-  await page.getByRole("button", { name: "로그인" }).click();
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
   await page.waitForURL("**/staff");
 }
 
 async function staffLogout(page: Page) {
-  await page
-    .getByRole("button", { name: "로그아웃" })
-    .first()
-    .click();
+  await page.getByRole("button", { name: "로그아웃" }).first().click();
   await page.waitForURL("**/staff/login");
+}
+
+/** 이전 실행이 남긴 테스트 계정을 정리 */
+async function deleteRespondentAccount(page: Page, loginId: string) {
+  const res = await page.request.get("/api/respondents");
+  if (!res.ok()) return;
+  const data = (await res.json()) as {
+    accounts: { id: string; loginId: string }[];
+  };
+  const target = data.accounts.find((a) => a.loginId === loginId);
+  if (target) {
+    await page.request.delete(`/api/respondents/${target.id}`);
+  }
+}
+
+/** 이전 실행이 남긴 테스트 설문을 정리 */
+async function deleteTestSurveys(page: Page, title: string) {
+  const res = await page.request.get("/api/surveys");
+  if (!res.ok()) return;
+  const data = (await res.json()) as {
+    surveys: { id: string; title: string }[];
+  };
+  for (const survey of data.surveys.filter((s) => s.title === title)) {
+    await page.request.delete(`/api/surveys/${survey.id}`);
+  }
 }
 
 test.describe.serial("설문 전체 흐름", () => {
@@ -42,11 +70,13 @@ test.describe.serial("설문 전체 흐름", () => {
     ).toBeTruthy();
   });
 
-  test("관리자: 로그인 → 설문 업로드 → 게시 → 응답자 계정 생성", async ({
-    page,
-  }) => {
-    await staffLogin(page, ADMIN_CODE);
+  test("관리자: 역할 선택 로그인 → 설문 업로드 → 게시", async ({ page }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
     await expect(page.getByText("설문 목록").first()).toBeVisible();
+
+    // 이전 실행 잔여 데이터 정리
+    await deleteRespondentAccount(page, RESPONDENT_ID);
+    await deleteTestSurveys(page, "E2E 테스트 설문조사");
 
     // 설문 파일 업로드
     await page.goto("/staff/surveys/new");
@@ -86,36 +116,42 @@ test.describe.serial("설문 전체 흐름", () => {
     await page.getByRole("button", { name: "게시", exact: true }).click();
     await expect(page.getByText("설문을 게시했습니다.")).toBeVisible();
 
-    // 응답자 계정 생성
-    await page.goto(`${surveyUrl}/respondents`);
-    await page.getByLabel("ID", { exact: true }).fill(RESPONDENT_ID);
-    await page.getByLabel("비밀번호", { exact: true }).fill(RESPONDENT_PW);
-    await page.getByRole("button", { name: "계정 추가" }).click();
-    await expect(
-      page.getByRole("cell", { name: RESPONDENT_ID, exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText("미제출")).toBeVisible();
-
     await staffLogout(page);
   });
 
-  test("응답자: 로그인 → 응답 → 제출 → 재접속 시 중복 차단", async ({
+  test("응답자: 회원 가입 → 설문 목록 → 응답 → 제출 → 중복 차단", async ({
     browser,
   }) => {
     expect(respondentUrl).toBeTruthy();
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    // 로그인
-    await page.goto(respondentUrl);
-    await page.getByLabel("ID (숫자 4자리)").fill(RESPONDENT_ID);
-    await page.getByLabel("비밀번호 (숫자 4자리)").fill(RESPONDENT_PW);
-    await page.getByRole("button", { name: "로그인" }).click();
-
-    // 설문 화면
+    // 랜딩 → 설문 응답 → 회원 가입/로그인 선택 화면
+    await page.goto("/");
+    await page.getByRole("button", { name: "설문 응답 시작" }).click();
+    await page.waitForURL("**/respondent");
     await expect(
-      page.getByText("근무환경에 만족하십니까?"),
-    ).toBeVisible({ timeout: 15_000 });
+      page.getByRole("button", { name: "회원 가입" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "로그인" })).toBeVisible();
+
+    // 회원 가입 (숫자 4자리 ID/PW)
+    await page.getByRole("button", { name: "회원 가입" }).click();
+    await page.waitForURL("**/respondent/signup");
+    await page.getByLabel("아이디 (숫자 4자리)").fill(RESPONDENT_ID);
+    await page.getByLabel("비밀번호 (숫자 4자리)").fill(RESPONDENT_PW);
+    await page.getByRole("button", { name: "회원 가입" }).click();
+
+    // 가입 후 설문 목록으로 이동
+    await page.waitForURL("**/respondent/surveys");
+    await expect(page.getByText("진행 중인 설문")).toBeVisible();
+    await expect(page.getByText("E2E 테스트 설문조사")).toBeVisible();
+
+    // 설문 참여
+    await page.getByRole("button", { name: "설문 참여하기" }).first().click();
+    await expect(page.getByText("근무환경에 만족하십니까?")).toBeVisible({
+      timeout: 15_000,
+    });
 
     // 응답 작성
     await page.getByText("만족", { exact: true }).click();
@@ -145,6 +181,19 @@ test.describe.serial("설문 전체 흐름", () => {
       page.getByText("이미 설문 응답을 완료했습니다."),
     ).toBeVisible();
 
+    // 설문 목록에서도 제출 완료로 표시
+    await page.goto("/respondent/surveys");
+    await expect(page.getByText("제출 완료")).toBeVisible();
+
+    // 로그아웃 후 재로그인도 정상 동작
+    await page.getByRole("button", { name: "로그아웃" }).click();
+    await page.waitForURL("**/respondent");
+    await page.getByRole("button", { name: "로그인" }).click();
+    await page.getByLabel("아이디 (숫자 4자리)").fill(RESPONDENT_ID);
+    await page.getByLabel("비밀번호 (숫자 4자리)").fill(RESPONDENT_PW);
+    await page.getByRole("button", { name: "로그인", exact: true }).click();
+    await page.waitForURL("**/respondent/surveys");
+
     await context.close();
   });
 
@@ -152,7 +201,7 @@ test.describe.serial("설문 전체 흐름", () => {
     page,
   }) => {
     expect(surveyUrl).toBeTruthy();
-    await staffLogin(page, REVIEWER_CODE);
+    await staffLogin(page, "reviewer", REVIEWER_CODE);
 
     // 확인자 배지 표시
     await expect(page.getByText("확인자").first()).toBeVisible();
@@ -183,11 +232,23 @@ test.describe.serial("설문 전체 흐름", () => {
     expect(res.status()).toBe(403);
   });
 
-  test("정리: 관리자가 테스트 설문 삭제", async ({ page }) => {
-    await staffLogin(page, ADMIN_CODE);
+  test("잘못된 역할 선택으로는 로그인되지 않는다", async ({ page }) => {
+    // 확인자 코드로 관리자 로그인 시도 → 실패해야 한다
+    await page.goto("/staff/login");
+    await page.getByRole("button", { name: "관리자 로그인" }).click();
+    await page.getByLabel("Access Code").fill(REVIEWER_CODE);
+    await page.getByRole("button", { name: "로그인", exact: true }).click();
+    await expect(
+      page.getByText("Access Code가 올바르지 않습니다."),
+    ).toBeVisible();
+  });
+
+  test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
     await page.goto(surveyUrl);
     await page.getByRole("button", { name: "설문 삭제" }).click();
     await page.getByRole("button", { name: "삭제", exact: true }).click();
     await page.waitForURL("**/staff");
+    await deleteRespondentAccount(page, RESPONDENT_ID);
   });
 });

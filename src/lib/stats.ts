@@ -34,7 +34,8 @@ export type SurveyStats = {
 export async function computeSurveyStats(surveyId: string): Promise<SurveyStats> {
   const [survey, accounts, questions, responses] = await Promise.all([
     prisma.survey.findUniqueOrThrow({ where: { id: surveyId } }),
-    prisma.respondentAccount.count({ where: { surveyId, active: true } }),
+    // 응답자 계정은 전역이므로 활성 계정 전체가 이 설문의 잠재 응답자다.
+    prisma.respondentAccount.count({ where: { active: true } }),
     prisma.question.findMany({
       where: { surveyId },
       orderBy: { order: "asc" },

@@ -9,11 +9,11 @@ import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
-type Params = { params: Promise<{ id: string; accountId: string }> };
+type Params = { params: Promise<{ accountId: string }> };
 
-async function findAccount(surveyId: string, accountId: string) {
-  const account = await prisma.respondentAccount.findFirst({
-    where: { id: accountId, surveyId },
+async function findAccount(accountId: string) {
+  const account = await prisma.respondentAccount.findUnique({
+    where: { id: accountId },
   });
   if (!account) throw new AppError(404, "응답자 계정을 찾을 수 없습니다.");
   return account;
@@ -22,9 +22,9 @@ async function findAccount(surveyId: string, accountId: string) {
 export async function PATCH(request: NextRequest, { params }: Params) {
   return handleApi(async () => {
     const session = await requireAdmin();
-    const { id, accountId } = await params;
+    const { accountId } = await params;
     const body = respondentUpdateSchema.parse(await request.json());
-    await findAccount(id, accountId);
+    await findAccount(accountId);
 
     const data: { active?: boolean; passwordHash?: string } = {};
     if (body.active !== undefined) data.active = body.active;
@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       action: body.password ? "respondent.password_change" : "respondent.update",
       targetType: "respondentAccount",
       targetId: accountId,
-      metadata: { surveyId: id, active: body.active },
+      metadata: { active: body.active },
     });
     return { account };
   });
@@ -53,18 +53,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   return handleApi(async () => {
     const session = await requireAdmin();
-    const { id, accountId } = await params;
-    const account = await findAccount(id, accountId);
+    const { accountId } = await params;
+    const account = await findAccount(accountId);
 
-    // 제출된 응답이 있는 계정을 삭제하면 responseCount도 함께 보정한다.
+    // 이 계정이 제출한 응답이 있는 설문들의 responseCount를 함께 보정한다.
     await prisma.$transaction(async (tx) => {
-      const response = await tx.surveyResponse.findUnique({
+      const responses = await tx.surveyResponse.findMany({
         where: { respondentAccountId: accountId },
+        select: { surveyId: true },
       });
       await tx.respondentAccount.delete({ where: { id: accountId } });
-      if (response) {
+      for (const response of responses) {
         await tx.survey.update({
-          where: { id },
+          where: { id: response.surveyId },
           data: { responseCount: { decrement: 1 } },
         });
       }
@@ -75,7 +76,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       action: "respondent.delete",
       targetType: "respondentAccount",
       targetId: accountId,
-      metadata: { surveyId: id, loginId: account.loginId },
+      metadata: { loginId: account.loginId },
     });
     return { ok: true };
   });

@@ -10,10 +10,15 @@ export const staffLoginSchema = z.object({
     .string()
     .min(1, "Access Code를 입력해 주세요.")
     .max(64, "Access Code가 너무 깁니다."),
+  role: z.enum(["admin", "reviewer"]),
 });
 
 export const respondentLoginSchema = z.object({
-  slug: z.string().min(1).max(64),
+  loginId: fourDigitSchema,
+  password: fourDigitSchema,
+});
+
+export const respondentSignupSchema = z.object({
   loginId: fourDigitSchema,
   password: fourDigitSchema,
 });
@@ -63,6 +68,7 @@ export const respondentUpdateSchema = z.object({
 });
 
 export const submitAnswersSchema = z.object({
+  surveyId: z.string().min(1),
   answers: z
     .array(
       z.object({

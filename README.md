@@ -8,10 +8,13 @@ HWPX / DOCX / PDF 설문 파일을 업로드하면 자동으로 웹 설문으로
 - **설문 파일 자동 변환** — HWPX(ZIP+XML 직접 해석), DOCX(mammoth), PDF(pdfjs-dist) 파일에서
   문항·체크박스 선택지를 자동 추출 (파일 최대 500KB, MIME/시그니처 검증)
 - **설문 편집·게시** — 문항 추가/수정/삭제/순서 변경, 필수 설정, 미리보기, 게시/중지/종료
-- **응답자 인증** — 설문별 숫자 4자리 ID/비밀번호 계정 (Argon2id 해시 저장)
-- **최대 13명 제한** — DB 수준 원자적 UPDATE로 동시 제출에도 정원 초과 차단
-- **중복 응답 방지** — DB unique constraint 기반
-- **권한(RBAC)** — 관리자(admin) / 확인자(reviewer), 모든 보호 API에서 서버 측 검증
+- **응답자 회원 가입/로그인** — 숫자 4자리 ID/비밀번호로 직접 가입 (Argon2id 해시 저장),
+  로그인 후 게시된 설문 목록에서 참여
+- **최대 13명 제한** — 응답자 계정 전체 13개 제한 + 설문별 응답 13명 제한
+  (DB 수준 원자적 UPDATE로 동시 제출에도 정원 초과 차단)
+- **중복 응답 방지** — DB unique constraint 기반 (설문별 계정당 1회)
+- **권한(RBAC)** — 관리자(admin) / 확인자(reviewer) 역할 선택 로그인,
+  모든 보호 API에서 서버 측 검증
 - **통계** — 객관식 선택지별 인원/비율을 서버에서 계산해 차트로 표시
 - **AI 분석** — GPT-5.6 Luna / DeepSeek V4 Flash, 결과 DB 저장·재사용, 두 모델 비교
 - **보안** — HTTP-only 세션 쿠키(JWT), rate limiting, 계정 잠금, Zod 검증,
@@ -32,8 +35,10 @@ npx prisma migrate deploy
 npm run dev
 ```
 
-- 운영자 로그인: `/staff/login` (ADMIN_ACCESS_CODE 또는 REVIEWER_ACCESS_CODE 입력)
-- 응답자 화면: 설문 게시 후 `/s/{slug}` 링크 공유
+- 운영자 로그인: `/staff/login`에서 관리자/확인자 선택 후 Access Code 입력
+  (ADMIN_ACCESS_CODE / REVIEWER_ACCESS_CODE)
+- 응답자: 메인 화면 → 설문 응답 → 회원 가입(숫자 4자리 ID/PW) → 로그인 →
+  설문 목록에서 참여. 설문 직링크 `/s/{slug}` 공유도 가능
 
 ## Supabase 설정
 

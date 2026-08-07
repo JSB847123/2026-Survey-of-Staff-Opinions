@@ -18,7 +18,7 @@ export async function GET() {
         maxRespondents: true,
         createdAt: true,
         publishedAt: true,
-        _count: { select: { questions: true, respondentAccounts: true } },
+        _count: { select: { questions: true, responses: true } },
       },
     });
     return { surveys };

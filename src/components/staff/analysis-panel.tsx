@@ -148,7 +148,8 @@ export function AnalysisPanel({
         <Button
           variant="ghost"
           size="sm"
-          render={<Link href={`/staff/surveys/${surveyId}`} />}
+          nativeButton={false}
+            render={<Link href={`/staff/surveys/${surveyId}`} />}
         >
           <ArrowLeft className="size-4" /> 설문 현황으로 돌아가기
         </Button>

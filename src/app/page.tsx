@@ -35,14 +35,15 @@ export default function HomePage() {
                 <ClipboardList className="size-8 text-primary" aria-hidden />
                 <CardTitle>설문 응답</CardTitle>
                 <CardDescription>
-                  안내받은 설문 링크로 접속한 뒤 ID와 비밀번호로 로그인하여
-                  설문에 참여하세요.
+                  회원 가입 후 로그인하면 진행 중인 설문조사에 참여할 수
+                  있습니다.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  설문 링크는 담당자에게 문의해 주세요.
-                </p>
+                <Button className="w-full" nativeButton={false}
+            render={<Link href="/respondent" />}>
+                  설문 응답 시작
+                </Button>
               </CardContent>
             </Card>
             <Card>
@@ -56,7 +57,8 @@ export default function HomePage() {
               <CardContent>
                 <Button
                   className="w-full"
-                  render={<Link href="/staff/login" />}
+                  nativeButton={false}
+            render={<Link href="/staff/login" />}
                 >
                   운영자 로그인
                 </Button>

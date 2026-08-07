@@ -36,10 +36,9 @@ model Survey {
   updatedAt      DateTime     @updatedAt
   publishedAt    DateTime?
 
-  questions          Question[]
-  respondentAccounts RespondentAccount[]
-  responses          SurveyResponse[]
-  analyses           Analysis[]
+  questions Question[]
+  responses SurveyResponse[]
+  analyses  Analysis[]
 }
 
 model Question {
@@ -71,11 +70,10 @@ model QuestionOption {
   @@index([questionId, order])
 }
 
+/// 전역 응답자 계정 — 응답자가 직접 회원가입하며 전체 최대 13개까지 생성 가능
 model RespondentAccount {
   id           String    @id @default(cuid())
-  surveyId     String
-  survey       Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  loginId      String
+  loginId      String    @unique
   passwordHash String
   active       Boolean   @default(true)
   failedLogins Int       @default(0)
@@ -83,16 +81,14 @@ model RespondentAccount {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  response SurveyResponse?
-
-  @@unique([surveyId, loginId])
+  responses SurveyResponse[]
 }
 
 model SurveyResponse {
   id                  String            @id @default(cuid())
   surveyId            String
   survey              Survey            @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  respondentAccountId String            @unique
+  respondentAccountId String
   respondentAccount   RespondentAccount @relation(fields: [respondentAccountId], references: [id], onDelete: Cascade)
   submittedAt         DateTime          @default(now())
 

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const body = submitAnswersSchema.parse(await request.json());
 
     const survey = await prisma.survey.findUnique({
-      where: { id: session.surveyId },
+      where: { id: body.surveyId },
       include: {
         questions: { include: { options: true } },
       },
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const account = await prisma.respondentAccount.findUnique({
       where: { id: session.accountId },
     });
-    if (!account || !account.active || account.surveyId !== survey.id) {
+    if (!account || !account.active) {
       throw new AppError(401, "로그인이 필요합니다.");
     }
 

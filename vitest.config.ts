@@ -16,5 +16,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    // 통합 테스트들이 같은 DB를 공유하므로 파일 단위 병렬 실행을 끈다.
+    fileParallelism: false,
   },
 });

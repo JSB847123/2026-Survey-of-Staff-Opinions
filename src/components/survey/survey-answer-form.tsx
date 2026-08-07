@@ -116,6 +116,7 @@ export function SurveyAnswerForm({
       await apiFetch("/api/respondent/submit", {
         method: "POST",
         body: JSON.stringify({
+          surveyId: survey.id,
           answers: survey.questions.map((q) => {
             const answer = getAnswer(q.id);
             return {

@@ -12,14 +12,13 @@ describe("session token", () => {
     const token = await createSessionToken({
       kind: "respondent",
       accountId: "acc1",
-      surveyId: "survey1",
       loginId: "0012",
     });
     const session = await verifySessionToken(token);
     expect(session).toMatchObject({
       kind: "respondent",
       accountId: "acc1",
-      surveyId: "survey1",
+      loginId: "0012",
     });
   });
 

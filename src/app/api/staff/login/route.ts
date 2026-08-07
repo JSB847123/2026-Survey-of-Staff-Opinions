@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
 
     const body = staffLoginSchema.parse(await request.json());
     const role = resolveStaffRole(body.accessCode);
-    if (!role) {
+    // 선택한 역할(관리자/확인자)과 코드가 일치해야 로그인된다.
+    if (!role || role !== body.role) {
       throw new AppError(401, "Access Code가 올바르지 않습니다.");
     }
 

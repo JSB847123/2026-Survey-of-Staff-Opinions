@@ -5,6 +5,7 @@
  * - 동시 제출 race condition에서도 정원을 초과하지 않는지
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { submitSurveyResponse } from "@/lib/submit";
 import { AppError } from "@/lib/errors";
@@ -15,6 +16,7 @@ const describeDb = hasDb ? describe : describe.skip;
 
 describeDb("submitSurveyResponse (DB 통합)", () => {
   const prisma = new PrismaClient();
+  const runId = randomUUID().slice(0, 8);
   let surveyId: string;
   let accountIds: string[] = [];
 
@@ -22,7 +24,7 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     const survey = await prisma.survey.create({
       data: {
         title: "통합 테스트 설문",
-        slug: `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        slug: `test-${runId}`,
         status: "PUBLISHED",
         questions: {
           create: [
@@ -38,13 +40,13 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     });
     surveyId = survey.id;
 
-    // 15개 계정 생성 (13명 제한 + 초과분 테스트용) — 계정 상한과 별개로 제출 상한을 검증
+    // 정원(13명) 초과 검증을 위해 계정 15개를 직접 생성
+    // (회원가입 상한과 별개로 '설문당 제출 상한'을 검증하는 테스트)
     const created = await Promise.all(
       Array.from({ length: 15 }, (_, i) =>
         prisma.respondentAccount.create({
           data: {
-            surveyId,
-            loginId: String(i).padStart(4, "0"),
+            loginId: `t${runId}${String(i).padStart(2, "0")}`,
             passwordHash: "test-hash",
           },
         }),
@@ -57,11 +59,14 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     if (surveyId) {
       await prisma.survey.delete({ where: { id: surveyId } }).catch(() => {});
     }
+    await prisma.respondentAccount
+      .deleteMany({ where: { id: { in: accountIds } } })
+      .catch(() => {});
     await prisma.$disconnect();
   });
 
   it("첫 제출은 성공한다", async () => {
-    await submitSurveyResponse(prisma, surveyId, accountIds[0], [])
+    await submitSurveyResponse(prisma, surveyId, accountIds[0], []);
     const survey = await prisma.survey.findUniqueOrThrow({
       where: { id: surveyId },
     });
@@ -82,9 +87,9 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
   it("13명까지 성공하고 14번째는 DB 수준에서 차단된다 (동시 제출 포함)", async () => {
     // 남은 14개 계정으로 동시에 제출 → 12명만 추가 성공해야 한다 (1명 기존 제출)
     const results = await Promise.allSettled(
-      accountIds.slice(1).map((accountId) =>
-        submitSurveyResponse(prisma, surveyId, accountId, []),
-      ),
+      accountIds
+        .slice(1)
+        .map((accountId) => submitSurveyResponse(prisma, surveyId, accountId, [])),
     );
 
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -108,12 +113,18 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
   }, 60_000);
 
   it("정원이 가득 찬 뒤의 제출은 실패한다", async () => {
-    const extra = await prisma.respondentAccount.findFirst({
-      where: { surveyId, response: null },
-    });
-    expect(extra).not.toBeNull();
+    const submitted = new Set(
+      (
+        await prisma.surveyResponse.findMany({
+          where: { surveyId },
+          select: { respondentAccountId: true },
+        })
+      ).map((r) => r.respondentAccountId),
+    );
+    const extra = accountIds.find((id) => !submitted.has(id));
+    expect(extra).toBeTruthy();
     await expect(
-      submitSurveyResponse(prisma, surveyId, extra!.id, []),
+      submitSurveyResponse(prisma, surveyId, extra!, []),
     ).rejects.toThrow(/정원이 가득/);
   });
 });

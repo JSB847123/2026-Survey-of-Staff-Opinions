@@ -17,7 +17,6 @@ export type StaffSession = {
 export type RespondentSession = {
   kind: "respondent";
   accountId: string;
-  surveyId: string;
   loginId: string;
 };
 

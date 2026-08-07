@@ -31,7 +31,7 @@ export default async function StaffHomePage() {
       responseCount: true,
       maxRespondents: true,
       createdAt: true,
-      _count: { select: { questions: true, respondentAccounts: true } },
+      _count: { select: { questions: true } },
     },
   });
 
@@ -44,7 +44,8 @@ export default async function StaffHomePage() {
             업로드된 설문을 관리하고 응답 현황을 확인합니다.
           </p>
         </div>
-        <Button render={<Link href="/staff/surveys/new" />}>
+        <Button nativeButton={false}
+            render={<Link href="/staff/surveys/new" />}>
           <FileUp className="size-4" /> 새 설문 업로드
         </Button>
       </div>
@@ -59,7 +60,8 @@ export default async function StaffHomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button render={<Link href="/staff/surveys/new" />}>
+            <Button nativeButton={false}
+            render={<Link href="/staff/surveys/new" />}>
               <FileUp className="size-4" /> 설문 파일 업로드
             </Button>
           </CardContent>
@@ -79,8 +81,7 @@ export default async function StaffHomePage() {
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </div>
                     <CardDescription>
-                      문항 {survey._count.questions}개 · 응답자 계정{" "}
-                      {survey._count.respondentAccounts}개
+                      문항 {survey._count.questions}개
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="text-sm text-muted-foreground">

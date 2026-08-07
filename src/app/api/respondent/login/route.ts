@@ -26,17 +26,8 @@ export async function POST(request: NextRequest) {
 
     const body = respondentLoginSchema.parse(await request.json());
 
-    const survey = await prisma.survey.findUnique({
-      where: { slug: body.slug },
-    });
-    if (!survey || survey.status !== "PUBLISHED") {
-      throw new AppError(404, "진행 중인 설문을 찾을 수 없습니다.");
-    }
-
     const account = await prisma.respondentAccount.findUnique({
-      where: {
-        surveyId_loginId: { surveyId: survey.id, loginId: body.loginId },
-      },
+      where: { loginId: body.loginId },
     });
     if (!account || !account.active) {
       throw new AppError(401, INVALID_MESSAGE);
@@ -76,14 +67,9 @@ export async function POST(request: NextRequest) {
     await setSessionCookie({
       kind: "respondent",
       accountId: account.id,
-      surveyId: survey.id,
       loginId: account.loginId,
     });
 
-    const existing = await prisma.surveyResponse.findUnique({
-      where: { respondentAccountId: account.id },
-    });
-
-    return { ok: true, alreadySubmitted: Boolean(existing) };
+    return { ok: true };
   });
 }

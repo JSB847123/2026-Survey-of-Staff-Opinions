@@ -54,7 +54,8 @@ export default async function SurveyPreviewPage({
       <Button
         variant="ghost"
         size="sm"
-        render={<Link href={`/staff/surveys/${id}`} />}
+        nativeButton={false}
+            render={<Link href={`/staff/surveys/${id}`} />}
       >
         <ArrowLeft className="size-4" /> 설문 현황으로 돌아가기
       </Button>

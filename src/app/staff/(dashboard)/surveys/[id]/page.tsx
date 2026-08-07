@@ -68,6 +68,7 @@ export default async function SurveyDetailPage({
           <Button
             variant="outline"
             size="sm"
+            nativeButton={false}
             render={<Link href={`/staff/surveys/${id}/edit`} />}
           >
             <Pencil className="size-4" /> 편집
@@ -75,6 +76,7 @@ export default async function SurveyDetailPage({
           <Button
             variant="outline"
             size="sm"
+            nativeButton={false}
             render={<Link href={`/staff/surveys/${id}/preview`} />}
           >
             <Eye className="size-4" /> 미리보기
@@ -82,13 +84,15 @@ export default async function SurveyDetailPage({
           <Button
             variant="outline"
             size="sm"
-            render={<Link href={`/staff/surveys/${id}/respondents`} />}
+            nativeButton={false}
+            render={<Link href="/staff/respondents" />}
           >
-            <Users className="size-4" /> 응답자 관리
+            <Users className="size-4" /> 응답자 계정
           </Button>
           <Button
             variant="outline"
             size="sm"
+            nativeButton={false}
             render={<Link href={`/staff/surveys/${id}/analysis`} />}
           >
             <Sparkles className="size-4" /> AI 분석

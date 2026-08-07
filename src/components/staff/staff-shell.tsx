@@ -10,6 +10,7 @@ import {
   Menu,
   ScrollText,
   Settings,
+  UsersRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/staff", label: "설문 목록", icon: ClipboardList },
   { href: "/staff/surveys/new", label: "설문 업로드", icon: FileUp },
+  { href: "/staff/respondents", label: "응답자 계정", icon: UsersRound },
   { href: "/staff/audit", label: "감사 로그", icon: ScrollText, adminOnly: true },
   { href: "/staff/settings", label: "시스템 설정", icon: Settings, adminOnly: true },
 ];

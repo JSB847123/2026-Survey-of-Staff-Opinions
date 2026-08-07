@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, KeyRound, Loader2, Plus, Trash2, UserRound } from "lucide-react";
+import { KeyRound, Loader2, Plus, Trash2, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -46,24 +45,20 @@ import {
 import { apiFetch } from "@/lib/client-api";
 
 const FOUR_DIGITS = /^\d{4}$/;
+const MAX_ACCOUNTS = 13;
 
 type Account = {
   id: string;
   loginId: string;
   active: boolean;
-  submittedAt: string | null;
+  responseCount: number;
+  createdAt: string;
 };
 
 export function RespondentsManager({
-  surveyId,
-  surveyTitle,
-  maxRespondents,
   isAdmin,
   initialAccounts,
 }: {
-  surveyId: string;
-  surveyTitle: string;
-  maxRespondents: number;
   isAdmin: boolean;
   initialAccounts: Account[];
 }) {
@@ -83,15 +78,17 @@ export function RespondentsManager({
         id: string;
         loginId: string;
         active: boolean;
-        response: { submittedAt: string } | null;
+        createdAt: string;
+        _count: { responses: number };
       }[];
-    }>(`/api/surveys/${surveyId}/respondents`);
+    }>("/api/respondents");
     setAccounts(
       data.accounts.map((a) => ({
         id: a.id,
         loginId: a.loginId,
         active: a.active,
-        submittedAt: a.response?.submittedAt ?? null,
+        responseCount: a._count.responses,
+        createdAt: a.createdAt,
       })),
     );
   };
@@ -104,7 +101,7 @@ export function RespondentsManager({
     }
     setCreating(true);
     try {
-      await apiFetch(`/api/surveys/${surveyId}/respondents`, {
+      await apiFetch("/api/respondents", {
         method: "POST",
         body: JSON.stringify({ loginId: newId, password: newPw }),
       });
@@ -122,7 +119,7 @@ export function RespondentsManager({
 
   const toggleActive = async (account: Account, active: boolean) => {
     try {
-      await apiFetch(`/api/surveys/${surveyId}/respondents/${account.id}`, {
+      await apiFetch(`/api/respondents/${account.id}`, {
         method: "PATCH",
         body: JSON.stringify({ active }),
       });
@@ -147,7 +144,7 @@ export function RespondentsManager({
     }
     setPwSaving(true);
     try {
-      await apiFetch(`/api/surveys/${surveyId}/respondents/${pwTarget.id}`, {
+      await apiFetch(`/api/respondents/${pwTarget.id}`, {
         method: "PATCH",
         body: JSON.stringify({ password: pwValue }),
       });
@@ -164,7 +161,7 @@ export function RespondentsManager({
   const remove = async () => {
     if (!deleteTarget) return;
     try {
-      await apiFetch(`/api/surveys/${surveyId}/respondents/${deleteTarget.id}`, {
+      await apiFetch(`/api/respondents/${deleteTarget.id}`, {
         method: "DELETE",
       });
       toast.success(`${deleteTarget.loginId} 계정을 삭제했습니다.`);
@@ -179,33 +176,24 @@ export function RespondentsManager({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="space-y-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<Link href={`/staff/surveys/${surveyId}`} />}
-        >
-          <ArrowLeft className="size-4" /> 설문 현황으로 돌아가기
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">응답자 관리</h1>
+        <h1 className="text-2xl font-bold tracking-tight">응답자 계정</h1>
         <p className="text-sm text-muted-foreground">
-          {surveyTitle} · 계정 {accounts.length} / {maxRespondents}
+          응답자는 직접 회원 가입할 수 있으며, 계정은 전체 {MAX_ACCOUNTS}개까지
+          만들 수 있습니다. (현재 {accounts.length} / {MAX_ACCOUNTS})
         </p>
       </div>
 
       {isAdmin ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">응답자 계정 만들기</CardTitle>
+            <CardTitle className="text-base">계정 직접 만들기</CardTitle>
             <CardDescription>
-              ID와 비밀번호는 각각 숫자 4자리입니다. 설문당 최대{" "}
-              {maxRespondents}개까지 만들 수 있습니다.
+              ID와 비밀번호는 각각 숫자 4자리입니다. 응답자 회원 가입과 동일한
+              전체 {MAX_ACCOUNTS}개 제한이 적용됩니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form
-              onSubmit={create}
-              className="flex flex-wrap items-end gap-3"
-            >
+            <form onSubmit={create} className="flex flex-wrap items-end gap-3">
               <div className="space-y-2">
                 <Label htmlFor="new-login-id">ID</Label>
                 <Input
@@ -216,7 +204,7 @@ export function RespondentsManager({
                   onChange={(e) => setNewId(e.target.value.replace(/\D/g, ""))}
                   placeholder="0001"
                   className="w-28 text-center"
-                  disabled={creating || accounts.length >= maxRespondents}
+                  disabled={creating || accounts.length >= MAX_ACCOUNTS}
                 />
               </div>
               <div className="space-y-2">
@@ -229,12 +217,12 @@ export function RespondentsManager({
                   onChange={(e) => setNewPw(e.target.value.replace(/\D/g, ""))}
                   placeholder="0000"
                   className="w-28 text-center"
-                  disabled={creating || accounts.length >= maxRespondents}
+                  disabled={creating || accounts.length >= MAX_ACCOUNTS}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={creating || accounts.length >= maxRespondents}
+                disabled={creating || accounts.length >= MAX_ACCOUNTS}
               >
                 {creating ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -243,9 +231,9 @@ export function RespondentsManager({
                 )}
                 계정 추가
               </Button>
-              {accounts.length >= maxRespondents && (
+              {accounts.length >= MAX_ACCOUNTS && (
                 <p className="text-sm text-muted-foreground">
-                  최대 인원({maxRespondents}명)에 도달했습니다.
+                  최대 개수({MAX_ACCOUNTS}개)에 도달했습니다.
                 </p>
               )}
             </form>
@@ -254,7 +242,7 @@ export function RespondentsManager({
       ) : (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            계정 생성·변경은 관리자만 할 수 있습니다. 아래에서 제출 현황을
+            계정 생성·변경·삭제는 관리자만 할 수 있습니다. 아래에서 현황을
             확인하세요.
           </CardContent>
         </Card>
@@ -263,7 +251,7 @@ export function RespondentsManager({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <UserRound className="size-4" aria-hidden /> 계정 목록
+            <UsersRound className="size-4" aria-hidden /> 계정 목록
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -277,7 +265,8 @@ export function RespondentsManager({
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead>제출 여부</TableHead>
+                  <TableHead>제출한 설문</TableHead>
+                  <TableHead>가입일</TableHead>
                   {isAdmin && <TableHead className="text-right">관리</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -306,11 +295,14 @@ export function RespondentsManager({
                       )}
                     </TableCell>
                     <TableCell>
-                      {account.submittedAt ? (
-                        <Badge>제출 완료</Badge>
+                      {account.responseCount > 0 ? (
+                        <Badge>{account.responseCount}건</Badge>
                       ) : (
-                        <Badge variant="outline">미제출</Badge>
+                        <Badge variant="outline">없음</Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(account.createdAt).toLocaleDateString("ko-KR")}
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
@@ -388,8 +380,8 @@ export function RespondentsManager({
           <AlertDialogHeader>
             <AlertDialogTitle>계정을 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.loginId} 계정이 삭제됩니다. 이미 제출한 응답이
-              있다면 응답도 함께 삭제되며 되돌릴 수 없습니다.
+              {deleteTarget?.loginId} 계정이 삭제됩니다. 이 계정이 제출한
+              응답이 있다면 응답도 함께 삭제되며 되돌릴 수 없습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

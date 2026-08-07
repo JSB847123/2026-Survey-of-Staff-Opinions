@@ -235,6 +235,7 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            nativeButton={false}
             render={<Link href={`/staff/surveys/${initialSurvey.id}/preview`} />}
           >
             <Eye className="size-4" /> 미리보기
