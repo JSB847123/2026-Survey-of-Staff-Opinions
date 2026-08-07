@@ -321,6 +321,83 @@ test.describe.serial("설문 전체 흐름", () => {
     await page.waitForURL("**/staff");
   });
 
+  test("설문 편집: 문항·선택지 추가/삭제/순서 변경 후 저장된다", async ({
+    page,
+  }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
+    await page.goto("/staff/surveys/new");
+
+    const markdown = [
+      "# E2E 편집 검증 설문",
+      "",
+      "1. 첫 번째 문항입니다.",
+      "□ 가 □ 나 □ 다",
+      "",
+      "2. 두 번째 문항입니다.",
+      "□ 예 □ 아니오",
+    ].join("\n");
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "edit-check.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(markdown, "utf8"),
+    });
+    await page.getByRole("button", { name: "업로드 및 문항 추출" }).click();
+    await page.waitForURL("**/staff/surveys/*/edit", { timeout: 30_000 });
+
+    // 제목 수정
+    await page.getByLabel("설문 제목").fill("E2E 편집 검증 설문(수정)");
+
+    // 1번 문항 제목 수정 + 선택지 추가 + 순서 변경
+    await page.locator('input[id^="q-title-"]').first().fill("수정된 첫 문항");
+    await page
+      .getByRole("button", { name: "선택지 추가" })
+      .first()
+      .click();
+    await page.getByLabel("문항 1 선택지 4").fill("라");
+    await page
+      .getByRole("button", { name: "선택지 아래로 이동" })
+      .first()
+      .click();
+
+    // 2번 문항의 선택지 하나 삭제
+    await page
+      .getByRole("button", { name: "선택지 삭제" })
+      .last()
+      .click();
+
+    // 새 문항 추가 (주관식)
+    await page.getByRole("button", { name: "문항 추가" }).click();
+    await page.locator('input[id^="q-title-"]').last().fill("추가된 주관식 문항");
+    await page.getByLabel("문항 유형").last().click();
+    await page.getByRole("option", { name: "주관식(서술)" }).click();
+
+    // 저장 → 현황 화면으로 이동하면 성공
+    await page.getByRole("button", { name: "저장" }).first().click();
+    await expect(page.getByText("설문을 저장했습니다.")).toBeVisible();
+    await page.waitForURL(/\/staff\/surveys\/[^/]+$/);
+
+    const editedUrl = new URL(page.url()).pathname;
+
+    // 저장 내용이 실제로 반영되었는지 편집 화면에서 확인
+    await page.goto(`${editedUrl}/edit`);
+    await expect(page.getByLabel("설문 제목")).toHaveValue(
+      "E2E 편집 검증 설문(수정)",
+    );
+    await expect(page.locator('input[id^="q-title-"]').first()).toHaveValue(
+      "수정된 첫 문항",
+    );
+    await expect(page.locator('input[id^="q-title-"]')).toHaveCount(3);
+    await expect(page.getByLabel("문항 1 선택지 1")).toHaveValue("나");
+    await expect(page.getByLabel("문항 1 선택지 4")).toHaveValue("라");
+
+    // 정리
+    await page.goto(editedUrl);
+    await page.getByRole("button", { name: "설문 삭제" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await page.waitForURL("**/staff");
+  });
+
   test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {
     await staffLogin(page, "admin", ADMIN_CODE);
     await page.goto(surveyUrl);

@@ -23,37 +23,41 @@ export async function submitSurveyResponse(
   answers: ValidatedAnswer[],
 ): Promise<void> {
   try {
-    await db.$transaction(async (tx) => {
-      const updated = await tx.$executeRaw`
+    await db.$transaction(
+      async (tx) => {
+        const updated = await tx.$executeRaw`
         UPDATE "Survey"
         SET "responseCount" = "responseCount" + 1
         WHERE "id" = ${surveyId}
           AND "status" = 'PUBLISHED'::"SurveyStatus"
           AND "responseCount" < "maxRespondents"`;
-      if (updated === 0) {
-        throw new AppError(
-          409,
-          "설문 정원이 가득 차서 더 이상 응답을 제출할 수 없습니다.",
-        );
-      }
+        if (updated === 0) {
+          throw new AppError(
+            409,
+            "설문 정원이 가득 차서 더 이상 응답을 제출할 수 없습니다.",
+          );
+        }
 
-      const response = await tx.surveyResponse.create({
-        data: { surveyId, respondentAccountId: accountId },
-      });
-
-      for (const answer of answers) {
-        await tx.answer.create({
-          data: {
-            responseId: response.id,
-            questionId: answer.questionId,
-            textValue: answer.textValue,
-            selections: {
-              create: answer.optionIds.map((optionId) => ({ optionId })),
-            },
-          },
+        const response = await tx.surveyResponse.create({
+          data: { surveyId, respondentAccountId: accountId },
         });
-      }
-    });
+
+        for (const answer of answers) {
+          await tx.answer.create({
+            data: {
+              responseId: response.id,
+              questionId: answer.questionId,
+              textValue: answer.textValue,
+              selections: {
+                create: answer.optionIds.map((optionId) => ({ optionId })),
+              },
+            },
+          });
+        }
+      },
+      // 문항이 많은 설문에서도 제출이 중간에 끊기지 않도록 기본 5초보다 넉넉히 잡는다.
+      { maxWait: 15_000, timeout: 60_000 },
+    );
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

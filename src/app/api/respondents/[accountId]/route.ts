@@ -57,15 +57,16 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     const account = await findAccount(accountId);
 
     // 이 계정이 제출한 응답이 있는 설문들의 responseCount를 함께 보정한다.
+    // (설문당 계정별 응답은 최대 1건이므로 updateMany로 한 번에 감소시킬 수 있다.)
     await prisma.$transaction(async (tx) => {
       const responses = await tx.surveyResponse.findMany({
         where: { respondentAccountId: accountId },
         select: { surveyId: true },
       });
       await tx.respondentAccount.delete({ where: { id: accountId } });
-      for (const response of responses) {
-        await tx.survey.update({
-          where: { id: response.surveyId },
+      if (responses.length > 0) {
+        await tx.survey.updateMany({
+          where: { id: { in: responses.map((r) => r.surveyId) } },
           data: { responseCount: { decrement: 1 } },
         });
       }
