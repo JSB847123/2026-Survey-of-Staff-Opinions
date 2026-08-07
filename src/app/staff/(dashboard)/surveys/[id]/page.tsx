@@ -1,0 +1,162 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import {
+  BarChart3,
+  Eye,
+  Pencil,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { computeSurveyStats } from "@/lib/stats";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SURVEY_STATUS_LABEL } from "@/lib/survey-dto";
+import { SurveyActions } from "@/components/staff/survey-actions";
+import { SurveyLinkCard } from "@/components/staff/survey-link-card";
+import { StatsBars } from "@/components/staff/stats-bars";
+
+export const metadata: Metadata = { title: "설문 현황" };
+export const dynamic = "force-dynamic";
+
+export default async function SurveyDetailPage({
+  params,
+}: PageProps<"/staff/surveys/[id]">) {
+  const { id } = await params;
+  const session = await getSession();
+  const isAdmin = session?.kind === "staff" && session.role === "admin";
+
+  const survey = await prisma.survey.findUnique({
+    where: { id },
+    include: { _count: { select: { questions: true } } },
+  });
+  if (!survey) notFound();
+
+  const stats = await computeSurveyStats(id);
+
+  const statusVariant =
+    survey.status === "PUBLISHED"
+      ? "default"
+      : survey.status === "DRAFT"
+        ? "secondary"
+        : "outline";
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{survey.title}</h1>
+            <Badge variant={statusVariant}>
+              {SURVEY_STATUS_LABEL[survey.status]}
+            </Badge>
+          </div>
+          {survey.description && (
+            <p className="text-sm text-muted-foreground">{survey.description}</p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/staff/surveys/${id}/edit`} />}
+          >
+            <Pencil className="size-4" /> 편집
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/staff/surveys/${id}/preview`} />}
+          >
+            <Eye className="size-4" /> 미리보기
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/staff/surveys/${id}/respondents`} />}
+          >
+            <Users className="size-4" /> 응답자 관리
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/staff/surveys/${id}/analysis`} />}
+          >
+            <Sparkles className="size-4" /> AI 분석
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>응답</CardDescription>
+            <CardTitle className="text-3xl tabular-nums">
+              {stats.submittedCount}{" "}
+              <span className="text-base font-normal text-muted-foreground">
+                / {stats.maxRespondents}
+              </span>
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>미응답</CardDescription>
+            <CardTitle className="text-3xl tabular-nums">
+              {stats.notSubmittedCount}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>응답률</CardDescription>
+            <CardTitle className="text-3xl tabular-nums">
+              {stats.responseRate}%
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>상태</CardDescription>
+            <CardTitle className="text-3xl">
+              {SURVEY_STATUS_LABEL[survey.status]}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SurveyLinkCard slug={survey.slug} status={survey.status} />
+        <SurveyActions
+          surveyId={survey.id}
+          status={survey.status}
+          isAdmin={isAdmin}
+          questionCount={survey._count.questions}
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="size-5" aria-hidden /> 문항별 응답 통계
+          </CardTitle>
+          <CardDescription>
+            객관식 통계는 서버에서 정확하게 계산됩니다. (제출 인원 기준)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StatsBars questions={stats.questions} submittedCount={stats.submittedCount} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

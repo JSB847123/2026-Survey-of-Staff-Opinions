@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum SurveyStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum QuestionType {
+  CHECKBOX
+  SHORT_TEXT
+  LONG_TEXT
+}
+
+model Survey {
+  id             String       @id @default(cuid())
+  title          String
+  description    String?
+  slug           String       @unique
+  status         SurveyStatus @default(DRAFT)
+  sourceFileName String?
+  sourceFileType String?
+  sourceFilePath String?
+  maxRespondents Int          @default(13)
+  responseCount  Int          @default(0)
+  version        Int          @default(1)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  publishedAt    DateTime?
+
+  questions          Question[]
+  respondentAccounts RespondentAccount[]
+  responses          SurveyResponse[]
+  analyses           Analysis[]
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  surveyId    String
+  survey      Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  order       Int
+  type        QuestionType
+  title       String
+  description String?
+  required    Boolean      @default(false)
+  needsReview Boolean      @default(false)
+
+  options QuestionOption[]
+  answers Answer[]
+
+  @@index([surveyId, order])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  order      Int
+  label      String
+
+  selections AnswerSelection[]
+
+  @@index([questionId, order])
+}
+
+model RespondentAccount {
+  id           String    @id @default(cuid())
+  surveyId     String
+  survey       Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  loginId      String
+  passwordHash String
+  active       Boolean   @default(true)
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  response SurveyResponse?
+
+  @@unique([surveyId, loginId])
+}
+
+model SurveyResponse {
+  id                  String            @id @default(cuid())
+  surveyId            String
+  survey              Survey            @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondentAccountId String            @unique
+  respondentAccount   RespondentAccount @relation(fields: [respondentAccountId], references: [id], onDelete: Cascade)
+  submittedAt         DateTime          @default(now())
+
+  answers Answer[]
+
+  @@unique([surveyId, respondentAccountId])
+}
+
+model Answer {
+  id         String         @id @default(cuid())
+  responseId String
+  response   SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  textValue  String?
+
+  selections AnswerSelection[]
+
+  @@unique([responseId, questionId])
+}
+
+model AnswerSelection {
+  id       String         @id @default(cuid())
+  answerId String
+  answer   Answer         @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  optionId String
+  option   QuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([answerId, optionId])
+}
+
+model Analysis {
+  id             String   @id @default(cuid())
+  surveyId       String
+  survey         Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  provider       String
+  model          String
+  resultJson     Json
+  resultMarkdown String
+  responseCount  Int
+  surveyVersion  Int
+  createdByRole  String
+  createdAt      DateTime @default(now())
+
+  @@index([surveyId, provider, model, surveyVersion, responseCount])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorRole  String
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
