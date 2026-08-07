@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getMaxRespondents } from "@/lib/settings";
 import { RespondentsManager } from "@/components/staff/respondents-manager";
+import { RespondentLimitCard } from "@/components/staff/respondent-limit-card";
 
 export const metadata: Metadata = { title: "응답자 계정" };
 export const dynamic = "force-dynamic";
@@ -10,27 +12,44 @@ export default async function RespondentsPage() {
   const session = await getSession();
   const isAdmin = session?.kind === "staff" && session.role === "admin";
 
-  const accounts = await prisma.respondentAccount.findMany({
-    orderBy: { loginId: "asc" },
-    select: {
-      id: true,
-      loginId: true,
-      active: true,
-      createdAt: true,
-      _count: { select: { responses: true } },
-    },
-  });
+  const [accounts, maxRespondents] = await Promise.all([
+    prisma.respondentAccount.findMany({
+      orderBy: { loginId: "asc" },
+      select: {
+        id: true,
+        loginId: true,
+        active: true,
+        createdAt: true,
+        _count: { select: { responses: true } },
+      },
+    }),
+    getMaxRespondents(),
+  ]);
 
   return (
-    <RespondentsManager
-      isAdmin={isAdmin}
-      initialAccounts={accounts.map((a) => ({
-        id: a.id,
-        loginId: a.loginId,
-        active: a.active,
-        responseCount: a._count.responses,
-        createdAt: a.createdAt.toISOString(),
-      }))}
-    />
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">응답자 계정</h1>
+        <p className="text-sm text-muted-foreground">
+          응답자는 직접 회원 가입할 수 있으며, 계정은 전체 {maxRespondents}개까지
+          만들 수 있습니다. (현재 {accounts.length} / {maxRespondents})
+        </p>
+      </div>
+      <RespondentLimitCard
+        current={maxRespondents}
+        accountCount={accounts.length}
+      />
+      <RespondentsManager
+        isAdmin={isAdmin}
+        maxAccounts={maxRespondents}
+        initialAccounts={accounts.map((a) => ({
+          id: a.id,
+          loginId: a.loginId,
+          active: a.active,
+          responseCount: a._count.responses,
+          createdAt: a.createdAt.toISOString(),
+        }))}
+      />
+    </div>
   );
 }

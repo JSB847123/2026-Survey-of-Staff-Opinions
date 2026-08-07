@@ -45,7 +45,6 @@ import {
 import { apiFetch } from "@/lib/client-api";
 
 const FOUR_DIGITS = /^\d{4}$/;
-const MAX_ACCOUNTS = 13;
 
 type Account = {
   id: string;
@@ -57,9 +56,11 @@ type Account = {
 
 export function RespondentsManager({
   isAdmin,
+  maxAccounts,
   initialAccounts,
 }: {
   isAdmin: boolean;
+  maxAccounts: number;
   initialAccounts: Account[];
 }) {
   const router = useRouter();
@@ -174,22 +175,14 @@ export function RespondentsManager({
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">응답자 계정</h1>
-        <p className="text-sm text-muted-foreground">
-          응답자는 직접 회원 가입할 수 있으며, 계정은 전체 {MAX_ACCOUNTS}개까지
-          만들 수 있습니다. (현재 {accounts.length} / {MAX_ACCOUNTS})
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {isAdmin ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">계정 직접 만들기</CardTitle>
             <CardDescription>
               ID와 비밀번호는 각각 숫자 4자리입니다. 응답자 회원 가입과 동일한
-              전체 {MAX_ACCOUNTS}개 제한이 적용됩니다.
+              전체 {maxAccounts}개 제한이 적용됩니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -204,7 +197,7 @@ export function RespondentsManager({
                   onChange={(e) => setNewId(e.target.value.replace(/\D/g, ""))}
                   placeholder="0001"
                   className="w-28 text-center"
-                  disabled={creating || accounts.length >= MAX_ACCOUNTS}
+                  disabled={creating || accounts.length >= maxAccounts}
                 />
               </div>
               <div className="space-y-2">
@@ -217,12 +210,12 @@ export function RespondentsManager({
                   onChange={(e) => setNewPw(e.target.value.replace(/\D/g, ""))}
                   placeholder="0000"
                   className="w-28 text-center"
-                  disabled={creating || accounts.length >= MAX_ACCOUNTS}
+                  disabled={creating || accounts.length >= maxAccounts}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={creating || accounts.length >= MAX_ACCOUNTS}
+                disabled={creating || accounts.length >= maxAccounts}
               >
                 {creating ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -231,9 +224,9 @@ export function RespondentsManager({
                 )}
                 계정 추가
               </Button>
-              {accounts.length >= MAX_ACCOUNTS && (
+              {accounts.length >= maxAccounts && (
                 <p className="text-sm text-muted-foreground">
-                  최대 개수({MAX_ACCOUNTS}개)에 도달했습니다.
+                  최대 개수({maxAccounts}개)에 도달했습니다.
                 </p>
               )}
             </form>

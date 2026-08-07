@@ -1,4 +1,19 @@
 import { z } from "zod";
+import { MAX_RESPONDENT_LIMIT, MIN_RESPONDENT_LIMIT } from "./constants";
+
+export const maxRespondentsSchema = z.object({
+  maxRespondents: z
+    .number()
+    .int(`최대 인원은 정수로 입력해 주세요.`)
+    .min(
+      MIN_RESPONDENT_LIMIT,
+      `최대 인원은 ${MIN_RESPONDENT_LIMIT}명 이상이어야 합니다.`,
+    )
+    .max(
+      MAX_RESPONDENT_LIMIT,
+      `최대 인원은 ${MAX_RESPONDENT_LIMIT}명 이하여야 합니다.`,
+    ),
+});
 
 /** 숫자 정확히 4자리 (예: "0012" 허용 — 반드시 string으로 처리) */
 export const fourDigitSchema = z

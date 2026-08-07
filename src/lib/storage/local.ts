@@ -5,8 +5,7 @@ import type { FileStorage } from "./index";
 
 /**
  * 로컬 개발/테스트 전용 드라이버.
- * Vercel filesystem은 영구 저장소가 아니므로 production에서는 사용하지 않는다
- * (production은 STORAGE_DRIVER=supabase).
+ * Vercel filesystem은 영구 저장소가 아니므로 production에서는 사용하지 않는다.
  */
 const BASE_DIR = path.join(process.cwd(), ".storage");
 
@@ -19,7 +18,9 @@ function resolveSafe(relPath: string): string {
 }
 
 export const localStorageDriver: FileStorage = {
-  async put(relPath, data) {
+  id: "local",
+
+  async put({ path: relPath, data }) {
     const abs = resolveSafe(relPath);
     await mkdir(path.dirname(abs), { recursive: true });
     await writeFile(abs, data);

@@ -19,7 +19,9 @@ function getBucket(): string {
 }
 
 export const supabaseStorage: FileStorage = {
-  async put(path, data, contentType) {
+  id: "supabase",
+
+  async put({ path, contentType, data }) {
     const client = getClient();
     const { error } = await client.storage
       .from(getBucket())

@@ -74,9 +74,13 @@ test.describe.serial("설문 전체 흐름", () => {
     await staffLogin(page, "admin", ADMIN_CODE);
     await expect(page.getByText("설문 목록").first()).toBeVisible();
 
-    // 이전 실행 잔여 데이터 정리
+    // 이전 실행 잔여 데이터 정리 및 설정 초기화
     await deleteRespondentAccount(page, RESPONDENT_ID);
     await deleteTestSurveys(page, "E2E 테스트 설문조사");
+    await deleteTestSurveys(page, "E2E 마크다운 설문");
+    await page.request.patch("/api/settings", {
+      data: { maxRespondents: 13 },
+    });
 
     // 설문 파일 업로드
     await page.goto("/staff/surveys/new");
@@ -144,8 +148,14 @@ test.describe.serial("설문 전체 흐름", () => {
 
     // 가입 후 설문 목록으로 이동
     await page.waitForURL("**/respondent/surveys");
-    await expect(page.getByText("진행 중인 설문")).toBeVisible();
-    await expect(page.getByText("E2E 테스트 설문조사")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "진행 중인 설문" }),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]', {
+        hasText: "E2E 테스트 설문조사",
+      }),
+    ).toBeVisible();
 
     // 설문 참여
     await page.getByRole("button", { name: "설문 참여하기" }).first().click();
@@ -183,7 +193,7 @@ test.describe.serial("설문 전체 흐름", () => {
 
     // 설문 목록에서도 제출 완료로 표시
     await page.goto("/respondent/surveys");
-    await expect(page.getByText("제출 완료")).toBeVisible();
+    await expect(page.getByText("제출 완료").first()).toBeVisible();
 
     // 로그아웃 후 재로그인도 정상 동작
     await page.getByRole("button", { name: "로그아웃" }).click();
@@ -241,6 +251,74 @@ test.describe.serial("설문 전체 흐름", () => {
     await expect(
       page.getByText("Access Code가 올바르지 않습니다."),
     ).toBeVisible();
+  });
+
+  test("확인자도 최대 인원을 1~20명 사이로 변경할 수 있다", async ({ page }) => {
+    await staffLogin(page, "reviewer", REVIEWER_CODE);
+    await page.goto("/staff/respondents");
+
+    const input = page.getByLabel("최대 인원");
+    await expect(input).toBeVisible();
+
+    // 20명으로 변경
+    await input.fill("20");
+    await page.getByRole("button", { name: "저장" }).click();
+    await expect(
+      page.getByText("최대 인원을 20명으로 변경했습니다."),
+    ).toBeVisible();
+    await expect(page.getByText("전체 20개까지")).toBeVisible();
+
+    // 범위를 벗어난 값은 거부된다 (앞선 토스트와 겹치지 않도록 새로고침 후 확인)
+    await page.reload();
+    await page.getByLabel("최대 인원").fill("21");
+    await page.getByRole("button", { name: "저장" }).click();
+    await expect(page.getByText(/20명 이하로 입력해 주세요/)).toBeVisible();
+
+    // 기본값으로 되돌린다
+    await page.reload();
+    await page.getByLabel("최대 인원").fill("13");
+    await page.getByRole("button", { name: "저장" }).click();
+    await expect(
+      page.getByText("최대 인원을 13명으로 변경했습니다."),
+    ).toBeVisible();
+  });
+
+  test("Markdown(.md) 파일도 설문으로 변환된다", async ({ page }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
+    await page.goto("/staff/surveys/new");
+
+    const markdown = [
+      "# E2E 마크다운 설문",
+      "",
+      "1. 업무 만족도는 어떻습니까?",
+      "- [ ] 만족",
+      "- [ ] 보통",
+      "- [ ] 불만족",
+      "",
+      "2. 건의사항을 자유롭게 작성해 주세요.",
+    ].join("\n");
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "e2e-survey.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(markdown, "utf8"),
+    });
+    await page.getByRole("button", { name: "업로드 및 문항 추출" }).click();
+
+    await page.waitForURL("**/staff/surveys/*/edit", { timeout: 30_000 });
+    await expect(page.locator('input[id^="q-title-"]').first()).toHaveValue(
+      "업무 만족도는 어떻습니까?",
+    );
+    // GFM 체크박스가 선택지로 변환되었는지 확인
+    await expect(page.getByLabel("문항 1 선택지 1")).toHaveValue("만족");
+    await expect(page.getByLabel("문항 1 선택지 3")).toHaveValue("불만족");
+
+    // 정리
+    const markdownSurveyUrl = new URL(page.url()).pathname.replace("/edit", "");
+    await page.goto(markdownSurveyUrl);
+    await page.getByRole("button", { name: "설문 삭제" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await page.waitForURL("**/staff");
   });
 
   test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {

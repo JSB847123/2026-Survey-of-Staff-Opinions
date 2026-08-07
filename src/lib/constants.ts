@@ -1,10 +1,13 @@
-export const MAX_RESPONDENTS_PER_SURVEY = 13;
+/** 최대 인원 기본값 (운영자가 1~20 사이로 조정 가능) */
+export const DEFAULT_MAX_RESPONDENTS = 13;
 
-/** 전역 응답자 계정(회원가입) 최대 개수 */
-export const MAX_RESPONDENT_ACCOUNTS = 13;
+/** 운영자가 설정할 수 있는 최대 인원 범위 */
+export const MIN_RESPONDENT_LIMIT = 1;
+export const MAX_RESPONDENT_LIMIT = 20;
 
-export const ACCOUNT_LIMIT_MESSAGE =
-  "응답자 계정은 최대 13개까지 만들 수 있습니다.";
+export function accountLimitMessage(limit: number): string {
+  return `응답자 계정은 최대 ${limit}개까지 만들 수 있습니다.`;
+}
 
 // 500KB = 500 * 1024 bytes
 export const MAX_FILE_SIZE = 500 * 1024;
@@ -17,8 +20,19 @@ export const PDF_NO_TEXT_MESSAGE =
 
 export const ALREADY_SUBMITTED_MESSAGE = "이미 설문 응답을 완료했습니다.";
 
-export const SUPPORTED_EXTENSIONS = ["hwpx", "docx", "pdf"] as const;
+export const SUPPORTED_EXTENSIONS = [
+  "hwpx",
+  "docx",
+  "pdf",
+  "md",
+  "markdown",
+] as const;
 export type SupportedExtension = (typeof SUPPORTED_EXTENSIONS)[number];
+
+/** 사용자에게 보여줄 지원 형식 표기 */
+export const SUPPORTED_FORMATS_LABEL = "HWPX, DOCX, PDF, Markdown(.md)";
+
+export const UNSUPPORTED_FILE_MESSAGE = `지원하지 않는 파일 형식입니다. ${SUPPORTED_FORMATS_LABEL} 파일만 업로드할 수 있습니다.`;
 
 export const CHECKBOX_CHARS = ["□", "☐", "☑", "■", "▢"] as const;
 

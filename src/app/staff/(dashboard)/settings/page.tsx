@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { getSession } from "@/lib/session";
+import { describeStorage } from "@/lib/storage";
+import { getMaxRespondents } from "@/lib/settings";
 import {
   Card,
   CardContent,
@@ -35,6 +37,9 @@ export default async function SettingsPage() {
   if (!session || session.kind !== "staff" || session.role !== "admin") {
     redirect("/staff");
   }
+
+  const storage = describeStorage();
+  const maxRespondents = await getMaxRespondents();
 
   // 값 자체는 절대 노출하지 않고 설정 여부만 표시한다.
   const envs: [string, boolean][] = [
@@ -86,19 +91,41 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">파일 저장소</CardTitle>
+          <CardDescription>
+            업로드된 원본 설문 파일이 보관되는 위치입니다.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-1 text-sm">
+        <CardContent className="space-y-2 text-sm">
           <p>
-            드라이버:{" "}
-            <span className="font-mono">
-              {process.env.STORAGE_DRIVER ?? "supabase"}
-            </span>
+            현재 저장 방식: <span className="font-medium">{storage.label}</span>
           </p>
-          <p className="text-muted-foreground">
-            production에서는 Supabase Private Storage(
-            {process.env.SUPABASE_STORAGE_BUCKET ?? "survey-files"} 버킷)를
-            사용합니다.
-          </p>
+          {storage.id === "database" && (
+            <p className="text-muted-foreground">
+              SUPABASE_SERVICE_ROLE_KEY가 없어 원본 파일을 데이터베이스에
+              보관하고 있습니다. 파일 업로드와 설문 변환은 정상 동작하며, 키를
+              설정하면 자동으로 Supabase Private Storage(
+              {process.env.SUPABASE_STORAGE_BUCKET ?? "survey-files"} 버킷)를
+              사용합니다.
+            </p>
+          )}
+          {storage.id === "local" && (
+            <p className="text-muted-foreground">
+              로컬 디스크는 개발 전용입니다. Vercel 배포 환경에서는 STORAGE_DRIVER를
+              비워 두거나 auto로 설정하세요.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">응답 인원</CardTitle>
+          <CardDescription>
+            변경은 [응답자 계정] 화면에서 할 수 있습니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm">
+          현재 최대 인원: <span className="font-medium">{maxRespondents}명</span>
         </CardContent>
       </Card>
 

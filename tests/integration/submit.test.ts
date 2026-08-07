@@ -1,6 +1,6 @@
 /**
  * 실제 DB(DATABASE_URL)를 사용하는 통합 테스트.
- * - 설문별 최대 13명 제한이 DB 수준에서 지켜지는지
+ * - 설문별 최대 인원 제한이 DB 수준에서 지켜지는지
  * - 동일 계정 중복 제출이 DB constraint로 차단되는지
  * - 동시 제출 race condition에서도 정원을 초과하지 않는지
  */
@@ -9,10 +9,14 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { submitSurveyResponse } from "@/lib/submit";
 import { AppError } from "@/lib/errors";
-import { MAX_RESPONDENTS_PER_SURVEY } from "@/lib/constants";
+import { DEFAULT_MAX_RESPONDENTS } from "@/lib/constants";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const describeDb = hasDb ? describe : describe.skip;
+
+/** 이 설문의 정원 (기본값으로 고정해 다른 테스트의 전역 설정 변경과 격리) */
+const LIMIT = DEFAULT_MAX_RESPONDENTS;
+const EXTRA_ACCOUNTS = 2;
 
 describeDb("submitSurveyResponse (DB 통합)", () => {
   const prisma = new PrismaClient();
@@ -26,6 +30,7 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
         title: "통합 테스트 설문",
         slug: `test-${runId}`,
         status: "PUBLISHED",
+        maxRespondents: LIMIT,
         questions: {
           create: [
             {
@@ -40,10 +45,10 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     });
     surveyId = survey.id;
 
-    // 정원(13명) 초과 검증을 위해 계정 15개를 직접 생성
+    // 정원 초과 검증을 위해 정원보다 많은 계정을 직접 생성한다.
     // (회원가입 상한과 별개로 '설문당 제출 상한'을 검증하는 테스트)
     const created = await Promise.all(
-      Array.from({ length: 15 }, (_, i) =>
+      Array.from({ length: LIMIT + EXTRA_ACCOUNTS }, (_, i) =>
         prisma.respondentAccount.create({
           data: {
             loginId: `t${runId}${String(i).padStart(2, "0")}`,
@@ -84,8 +89,8 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     expect(survey.responseCount).toBe(1);
   });
 
-  it("13명까지 성공하고 14번째는 DB 수준에서 차단된다 (동시 제출 포함)", async () => {
-    // 남은 14개 계정으로 동시에 제출 → 12명만 추가 성공해야 한다 (1명 기존 제출)
+  it("정원까지만 성공하고 초과분은 DB 수준에서 차단된다 (동시 제출 포함)", async () => {
+    // 남은 계정으로 동시에 제출 → 정원까지만 성공해야 한다 (1명 기존 제출)
     const results = await Promise.allSettled(
       accountIds
         .slice(1)
@@ -95,8 +100,8 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected");
 
-    expect(succeeded).toBe(MAX_RESPONDENTS_PER_SURVEY - 1);
-    expect(failed.length).toBe(accountIds.length - MAX_RESPONDENTS_PER_SURVEY);
+    expect(succeeded).toBe(LIMIT - 1);
+    expect(failed.length).toBe(EXTRA_ACCOUNTS);
     for (const f of failed) {
       expect((f as PromiseRejectedResult).reason).toBeInstanceOf(AppError);
     }
@@ -104,12 +109,12 @@ describeDb("submitSurveyResponse (DB 통합)", () => {
     const survey = await prisma.survey.findUniqueOrThrow({
       where: { id: surveyId },
     });
-    expect(survey.responseCount).toBe(MAX_RESPONDENTS_PER_SURVEY);
+    expect(survey.responseCount).toBe(LIMIT);
 
     const responseCount = await prisma.surveyResponse.count({
       where: { surveyId },
     });
-    expect(responseCount).toBe(MAX_RESPONDENTS_PER_SURVEY);
+    expect(responseCount).toBe(LIMIT);
   }, 60_000);
 
   it("정원이 가득 찬 뒤의 제출은 실패한다", async () => {

@@ -1,24 +1,27 @@
 # 2026 직원 의견 설문조사
 
-HWPX / DOCX / PDF 설문 파일을 업로드하면 자동으로 웹 설문으로 변환하고,
+HWPX / DOCX / PDF / Markdown 설문 파일을 업로드하면 자동으로 웹 설문으로 변환하고,
 응답 수집 · 통계 · AI 분석까지 제공하는 직원 의견 설문조사 플랫폼입니다.
 
 ## 주요 기능
 
-- **설문 파일 자동 변환** — HWPX(ZIP+XML 직접 해석), DOCX(mammoth), PDF(pdfjs-dist) 파일에서
-  문항·체크박스 선택지를 자동 추출 (파일 최대 500KB, MIME/시그니처 검증)
+- **설문 파일 자동 변환** — HWPX(ZIP+XML 직접 해석), DOCX(mammoth), PDF(pdfjs-dist),
+  Markdown(.md, GFM 체크박스 지원) 파일에서 문항·체크박스 선택지를 자동 추출
+  (파일 최대 500KB, MIME/시그니처 검증)
 - **설문 편집·게시** — 문항 추가/수정/삭제/순서 변경, 필수 설정, 미리보기, 게시/중지/종료
 - **응답자 회원 가입/로그인** — 숫자 4자리 ID/비밀번호로 직접 가입 (Argon2id 해시 저장),
   로그인 후 게시된 설문 목록에서 참여
-- **최대 13명 제한** — 응답자 계정 전체 13개 제한 + 설문별 응답 13명 제한
-  (DB 수준 원자적 UPDATE로 동시 제출에도 정원 초과 차단)
+- **최대 인원 설정(1~20명)** — 관리자·확인자가 [응답자 계정] 화면에서 조정
+  (기본 13명). 계정 개수와 설문별 응답 인원에 함께 적용되며,
+  DB 수준 원자적 UPDATE로 동시 제출에도 정원 초과를 차단
 - **중복 응답 방지** — DB unique constraint 기반 (설문별 계정당 1회)
 - **권한(RBAC)** — 관리자(admin) / 확인자(reviewer) 역할 선택 로그인,
   모든 보호 API에서 서버 측 검증
 - **통계** — 객관식 선택지별 인원/비율을 서버에서 계산해 차트로 표시
 - **AI 분석** — GPT-5.6 Luna / DeepSeek V4 Flash, 결과 DB 저장·재사용, 두 모델 비교
 - **보안** — HTTP-only 세션 쿠키(JWT), rate limiting, 계정 잠금, Zod 검증,
-  prompt injection 방어, Supabase Private Storage
+  prompt injection 방어, 원본 파일 비공개 보관(Supabase Private Storage,
+  키 미설정 시 DB 보관으로 자동 대체)
 - **UI** — 다크 모드 기본(라이트 전환 가능), 모바일 대응, 접근성 고려
 
 ## 기술 스택
@@ -46,7 +49,9 @@ npm run dev
 2. **Database** — 연결 문자열 확인
    - `DATABASE_URL`: Transaction pooler(포트 6543) + `?pgbouncer=true&connection_limit=1`
    - `DIRECT_URL`: Session pooler(포트 5432) 또는 direct 연결 (마이그레이션용)
-3. **Storage** — private 버킷 생성 (예: `survey-files`, 파일 크기 제한 512000 bytes 권장)
+3. **Storage** — private 버킷 생성 (예: `survey-files`, 파일 크기 제한 512000 bytes 권장).
+   `SUPABASE_SERVICE_ROLE_KEY`를 설정하지 않아도 업로드는 동작하며,
+   이 경우 원본 파일은 데이터베이스에 보관됩니다 (관리자 → 시스템 설정에서 현재 방식 확인 가능).
 4. **API Keys** — `NEXT_PUBLIC_SUPABASE_URL`, publishable key, `service_role` key 확인
 
 ## Prisma 마이그레이션
@@ -67,9 +72,9 @@ npx prisma studio           # 데이터 확인
 | `DIRECT_URL` | 마이그레이션용 직접/세션 연결 |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Storage 서버 업로드용 (server only) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Storage 서버 업로드용 (server only, 선택) |
 | `SUPABASE_STORAGE_BUCKET` | private 버킷 이름 (예: survey-files) |
-| `STORAGE_DRIVER` | `supabase`(기본) 또는 `local`(개발/테스트 전용) |
+| `STORAGE_DRIVER` | `auto`(기본, 권장) · `supabase` · `database` · `local` |
 | `OPENAI_API_KEY` | GPT 분석용 |
 | `DEEPSEEK_API_KEY` | DeepSeek 분석용 |
 | `ADMIN_ACCESS_CODE` | 관리자 Access Code |
@@ -91,7 +96,7 @@ npx prisma studio           # 데이터 확인
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # next typegen + tsc
-npm test            # Vitest (단위 + DB 통합: 13명 제한/중복/race condition)
+npm test            # Vitest (단위 + DB 통합: 인원 제한/중복/race condition)
 npm run test:e2e    # Playwright (관리자→게시→응답→중복차단→권한 검증)
 npm run build       # production build
 ```
@@ -103,7 +108,7 @@ npm run build       # production build
 ## Vercel 배포
 
 1. GitHub 저장소를 Vercel에 연결 (Framework: Next.js, 기본 빌드 설정)
-2. 위 환경변수를 모두 설정 (`STORAGE_DRIVER`는 설정하지 않거나 `supabase`)
+2. 위 환경변수를 설정 (`STORAGE_DRIVER`는 설정하지 않거나 `auto` 권장)
 3. 최초 배포 전 로컬에서 `npx prisma migrate deploy`로 스키마 적용
    (Vercel 빌드에서 DB 마이그레이션/시드를 자동 실행하지 않습니다)
 4. 배포 후 `/staff/login`에서 Access Code로 로그인해 확인
@@ -115,10 +120,11 @@ src/
   app/              # App Router (staff 운영자 화면, s/[slug] 응답자 화면, api/*)
   components/       # UI 컴포넌트 (shadcn/ui + 화면별 컴포넌트)
   lib/
-    parsing/        # HWPX/DOCX/PDF 파서 (server-only)
+    parsing/        # HWPX/DOCX/PDF/Markdown 파서 (server-only)
     analysis/       # AI provider 추상화 (OpenAI/DeepSeek)
-    storage/        # Supabase Private Storage / 로컬 드라이버
-    submit.ts       # 응답 제출 트랜잭션 (13명 제한·중복 방지)
+    storage/        # Supabase Private Storage / DB / 로컬 드라이버
+    settings.ts     # 전역 최대 인원 설정 (1~20명)
+    submit.ts       # 응답 제출 트랜잭션 (정원 제한·중복 방지)
 prisma/             # 스키마·마이그레이션
 tests/              # Vitest 단위·통합 테스트
 e2e/                # Playwright E2E

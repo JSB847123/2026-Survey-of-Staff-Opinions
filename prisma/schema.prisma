@@ -36,9 +36,30 @@ model Survey {
   updatedAt      DateTime     @updatedAt
   publishedAt    DateTime?
 
-  questions Question[]
-  responses SurveyResponse[]
-  analyses  Analysis[]
+  questions  Question[]
+  responses  SurveyResponse[]
+  analyses   Analysis[]
+  sourceFile SurveySourceFile?
+}
+
+/// 원본 설문 파일 보관 (Supabase Storage를 쓸 수 없는 환경의 fallback).
+/// 파일은 500KB 이하이므로 DB 보관이 가능하며, 설문 조회 시 함께 읽히지 않도록 분리한다.
+model SurveySourceFile {
+  id          String   @id @default(cuid())
+  surveyId    String   @unique
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  fileName    String
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+}
+
+/// 앱 전역 설정 (단일 행). id는 항상 "singleton".
+model AppSetting {
+  id             String   @id @default("singleton")
+  maxRespondents Int      @default(13)
+  updatedAt      DateTime @updatedAt
 }
 
 model Question {

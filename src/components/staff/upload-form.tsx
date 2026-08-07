@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/client-api";
 
 // 500KB = 500 * 1024 bytes (서버에서도 동일하게 검증한다)
 const MAX_FILE_SIZE = 500 * 1024;
-const ACCEPTED_EXTENSIONS = [".hwpx", ".docx", ".pdf"];
+const ACCEPTED_EXTENSIONS = [".hwpx", ".docx", ".pdf", ".md", ".markdown"];
 
 type UploadResult = {
   surveyId: string;
@@ -35,7 +35,7 @@ export function UploadForm() {
     const lower = selected.name.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
       toast.error(
-        "지원하지 않는 파일 형식입니다. HWPX, DOCX, PDF 파일만 업로드할 수 있습니다.",
+        "지원하지 않는 파일 형식입니다. HWPX, DOCX, PDF, Markdown(.md) 파일만 업로드할 수 있습니다.",
       );
       setFile(null);
       return;
@@ -111,7 +111,7 @@ export function UploadForm() {
                   파일을 끌어다 놓거나 클릭하여 선택
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  HWPX · DOCX · PDF, 최대 500KB
+                  HWPX · DOCX · PDF · Markdown, 최대 500KB
                 </p>
               </div>
             )}
@@ -119,7 +119,7 @@ export function UploadForm() {
           <input
             ref={inputRef}
             type="file"
-            accept=".hwpx,.docx,.pdf"
+            accept=".hwpx,.docx,.pdf,.md,.markdown"
             className="sr-only"
             onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
             aria-hidden

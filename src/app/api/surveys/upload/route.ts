@@ -12,6 +12,7 @@ import {
 } from "@/lib/parsing";
 import { getStorage } from "@/lib/storage";
 import { generateSlug } from "@/lib/slug";
+import { getMaxRespondents } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -47,12 +48,7 @@ export async function POST(request: NextRequest) {
     // Draft 설문 생성 (자동 게시하지 않음)
     const surveyId = randomUUID();
     const storagePath = `surveys/${surveyId}/${randomUUID()}.${extension}`;
-
-    await getStorage().put(
-      storagePath,
-      buffer,
-      file.type || "application/octet-stream",
-    );
+    const maxRespondents = await getMaxRespondents();
 
     const survey = await prisma.survey.create({
       data: {
@@ -60,6 +56,7 @@ export async function POST(request: NextRequest) {
         title: parsed.title?.slice(0, 200) || file.name.replace(/\.[^.]+$/, ""),
         slug: generateSlug(),
         status: "DRAFT",
+        maxRespondents,
         sourceFileName: file.name,
         sourceFileType: extension,
         sourceFilePath: storagePath,
@@ -77,8 +74,28 @@ export async function POST(request: NextRequest) {
           })),
         },
       },
-      include: { questions: { include: { options: true } } },
     });
+
+    // 원본 파일 보관은 부가 기능이므로, 실패해도 설문 생성은 유지하고 경고만 남긴다.
+    const warnings = [...parsed.warnings];
+    try {
+      await getStorage().put({
+        path: storagePath,
+        surveyId,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        data: buffer,
+      });
+    } catch (error) {
+      console.error("[upload] source file store failed:", error);
+      warnings.push(
+        "원본 파일 보관에 실패했습니다. 설문 문항은 정상적으로 생성되었습니다.",
+      );
+      await prisma.survey.update({
+        where: { id: surveyId },
+        data: { sourceFilePath: null },
+      });
+    }
 
     await logAudit({
       actorRole: session.role,
@@ -95,7 +112,7 @@ export async function POST(request: NextRequest) {
     return {
       surveyId: survey.id,
       questionCount: parsed.questions.length,
-      warnings: parsed.warnings,
+      warnings,
     };
   });
 }

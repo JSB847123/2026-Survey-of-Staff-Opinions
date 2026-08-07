@@ -4,6 +4,7 @@ import {
   FILE_TOO_LARGE_MESSAGE,
   MAX_FILE_SIZE,
   SUPPORTED_EXTENSIONS,
+  UNSUPPORTED_FILE_MESSAGE,
   type SupportedExtension,
 } from "../constants";
 import type { UploadedFile } from "./types";
@@ -26,6 +27,20 @@ const ALLOWED_MIME_TYPES: Record<SupportedExtension, string[]> = {
     "",
   ],
   pdf: ["application/pdf", "application/octet-stream", ""],
+  md: [
+    "text/markdown",
+    "text/x-markdown",
+    "text/plain",
+    "application/octet-stream",
+    "",
+  ],
+  markdown: [
+    "text/markdown",
+    "text/x-markdown",
+    "text/plain",
+    "application/octet-stream",
+    "",
+  ],
 };
 
 export function getExtension(fileName: string): string {
@@ -47,10 +62,7 @@ export function validateUploadedFile(file: UploadedFile): SupportedExtension {
 
   const ext = getExtension(file.name);
   if (!(SUPPORTED_EXTENSIONS as readonly string[]).includes(ext)) {
-    throw new AppError(
-      400,
-      "지원하지 않는 파일 형식입니다. HWPX, DOCX, PDF 파일만 업로드할 수 있습니다.",
-    );
+    throw new AppError(400, UNSUPPORTED_FILE_MESSAGE);
   }
   const extension = ext as SupportedExtension;
 
@@ -66,6 +78,14 @@ export function validateUploadedFile(file: UploadedFile): SupportedExtension {
   if (extension === "pdf") {
     if (!head.subarray(0, PDF_SIGNATURE.length).equals(PDF_SIGNATURE)) {
       throw new AppError(400, "올바른 PDF 파일이 아닙니다.");
+    }
+  } else if (extension === "md" || extension === "markdown") {
+    // 텍스트 파일은 시그니처가 없으므로 바이너리 여부만 확인한다.
+    if (file.buffer.includes(0x00)) {
+      throw new AppError(
+        400,
+        "올바른 Markdown 파일이 아닙니다. UTF-8 텍스트 파일을 업로드해 주세요.",
+      );
     }
   } else {
     // hwpx, docx는 모두 ZIP 컨테이너
