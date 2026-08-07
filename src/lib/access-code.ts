@@ -26,3 +26,12 @@ export function resolveStaffRole(accessCode: string): StaffRole | null {
   if (reviewerCode && safeEqual(accessCode, reviewerCode)) return "reviewer";
   return null;
 }
+
+/** 해당 역할의 Access Code 환경변수가 설정되어 있는지 확인 */
+export function isRoleCodeConfigured(role: StaffRole): boolean {
+  const value =
+    role === "admin"
+      ? process.env.ADMIN_ACCESS_CODE
+      : process.env.REVIEWER_ACCESS_CODE;
+  return Boolean(value && value.trim().length > 0);
+}

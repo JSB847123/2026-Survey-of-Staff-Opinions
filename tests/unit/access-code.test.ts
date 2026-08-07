@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveStaffRole } from "@/lib/access-code";
+import { isRoleCodeConfigured, resolveStaffRole } from "@/lib/access-code";
 
 const ORIGINAL_ADMIN = process.env.ADMIN_ACCESS_CODE;
 const ORIGINAL_REVIEWER = process.env.REVIEWER_ACCESS_CODE;
@@ -33,5 +33,15 @@ describe("resolveStaffRole", () => {
     delete process.env.ADMIN_ACCESS_CODE;
     delete process.env.REVIEWER_ACCESS_CODE;
     expect(resolveStaffRole("test-admin-code")).toBeNull();
+  });
+
+  it("isRoleCodeConfigured: 설정 여부를 역할별로 판별한다", () => {
+    expect(isRoleCodeConfigured("admin")).toBe(true);
+    expect(isRoleCodeConfigured("reviewer")).toBe(true);
+    delete process.env.ADMIN_ACCESS_CODE;
+    expect(isRoleCodeConfigured("admin")).toBe(false);
+    expect(isRoleCodeConfigured("reviewer")).toBe(true);
+    process.env.REVIEWER_ACCESS_CODE = "  ";
+    expect(isRoleCodeConfigured("reviewer")).toBe(false);
   });
 });

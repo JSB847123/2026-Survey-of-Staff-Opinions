@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { handleApi } from "@/lib/api";
 import { AppError } from "@/lib/errors";
 import { staffLoginSchema } from "@/lib/validation";
-import { resolveStaffRole } from "@/lib/access-code";
+import { isRoleCodeConfigured, resolveStaffRole } from "@/lib/access-code";
 import { setSessionCookie } from "@/lib/session";
 import { clientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
@@ -20,6 +20,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = staffLoginSchema.parse(await request.json());
+
+    // 환경변수 미설정과 코드 불일치를 구분해 안내한다.
+    if (!isRoleCodeConfigured(body.role)) {
+      const envName =
+        body.role === "admin" ? "ADMIN_ACCESS_CODE" : "REVIEWER_ACCESS_CODE";
+      throw new AppError(
+        503,
+        `서버에 ${body.role === "admin" ? "관리자" : "확인자"} Access Code(${envName} 환경변수)가 설정되지 않았습니다. 배포 환경(Vercel)의 Environment Variables 또는 로컬 .env 파일을 확인해 주세요.`,
+      );
+    }
+
     const role = resolveStaffRole(body.accessCode);
     // 선택한 역할(관리자/확인자)과 코드가 일치해야 로그인된다.
     if (!role || role !== body.role) {
