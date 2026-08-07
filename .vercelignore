@@ -1,0 +1,10 @@
+# 로컬 환경변수 파일이 배포 번들에 포함되지 않도록 한다.
+# (Vercel Environment Variables만 사용)
+.env
+.env.*
+!.env.example
+
+# 로컬 전용 산출물
+.storage
+test-results
+playwright-report
