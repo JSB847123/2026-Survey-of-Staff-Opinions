@@ -59,6 +59,17 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
   const [saving, setSaving] = useState(false);
 
   const hasResponses = initialSurvey.responseCount > 0;
+  const needsReviewCount = questions.filter((q) => q.needsReview).length;
+
+  /** 자동 추출된 '확인 필요' 문항을 한 번에 확인 처리한다. */
+  const markAllReviewed = () => {
+    setQuestions((prev) =>
+      prev.map((q) => (q.needsReview ? { ...q, needsReview: false } : q)),
+    );
+    toast.success(
+      "모든 문항을 확인 완료로 표시했습니다. [저장]을 눌러 반영해 주세요.",
+    );
+  };
 
   const updateQuestion = (
     id: string,
@@ -219,7 +230,11 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
           })),
         }),
       });
-      toast.success("설문을 저장했습니다.");
+      toast.success(
+        initialSurvey.status === "PUBLISHED"
+          ? "설문을 저장했습니다."
+          : "설문을 저장했습니다. 응답을 받으려면 [게시]를 눌러 주세요.",
+      );
       router.push(`/staff/surveys/${initialSurvey.id}`);
       router.refresh();
     } catch (error) {
@@ -258,6 +273,24 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
           <AlertDescription>
             기존 응답의 의미를 보호하기 위해 문항 삭제, 문항 유형 변경, 선택지
             삭제는 제한됩니다.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {needsReviewCount > 0 && (
+        <Alert variant="destructive">
+          <TriangleAlert className="size-4" />
+          <AlertTitle>
+            확인이 필요한 문항이 {needsReviewCount}개 있습니다
+          </AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              문서에서 자동으로 추출한 내용이 정확한지 확인해 주세요. 확인
+              필요 문항이 남아 있으면 설문을 게시할 수 없습니다.
+            </p>
+            <Button size="sm" variant="outline" onClick={markAllReviewed}>
+              <CheckCircle2 className="size-4" /> 모두 확인 완료로 표시
+            </Button>
           </AlertDescription>
         </Alert>
       )}

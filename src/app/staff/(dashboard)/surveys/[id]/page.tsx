@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { SURVEY_STATUS_LABEL } from "@/lib/survey-dto";
 import { SurveyActions } from "@/components/staff/survey-actions";
+import { PublishStatusBanner } from "@/components/staff/publish-status-banner";
 import { SurveyLinkCard } from "@/components/staff/survey-link-card";
 import { StatsBars } from "@/components/staff/stats-bars";
 
@@ -40,6 +41,10 @@ export default async function SurveyDetailPage({
     include: { _count: { select: { questions: true } } },
   });
   if (!survey) notFound();
+
+  const needsReviewCount = await prisma.question.count({
+    where: { surveyId: id, needsReview: true },
+  });
 
   const stats = await computeSurveyStats(id);
 
@@ -99,6 +104,13 @@ export default async function SurveyDetailPage({
           </Button>
         </div>
       </div>
+
+      <PublishStatusBanner
+        surveyId={survey.id}
+        status={survey.status}
+        questionCount={survey._count.questions}
+        needsReviewCount={needsReviewCount}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

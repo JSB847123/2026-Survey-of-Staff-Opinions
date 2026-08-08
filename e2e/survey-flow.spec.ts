@@ -266,7 +266,8 @@ test.describe.serial("설문 전체 흐름", () => {
     await expect(
       page.getByText("최대 인원을 20명으로 변경했습니다."),
     ).toBeVisible();
-    await expect(page.getByText("전체 20개까지")).toBeVisible();
+    // 변경된 최대 인원이 계정 현황 문구에도 반영된다
+    await expect(page.getByText(/\/ 20개/)).toBeVisible();
 
     // 범위를 벗어난 값은 거부된다 (앞선 토스트와 겹치지 않도록 새로고침 후 확인)
     await page.reload();
@@ -393,6 +394,65 @@ test.describe.serial("설문 전체 흐름", () => {
 
     // 정리
     await page.goto(editedUrl);
+    await page.getByRole("button", { name: "설문 삭제" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await page.waitForURL("**/staff");
+  });
+
+  test("게시 안내: 확인 필요 문항을 처리해야 게시되고, 그 전에는 응답자에게 안 보인다", async ({
+    page,
+  }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
+    await page.goto("/staff/surveys/new");
+
+    // 유형 단서가 없는 문항 → 파서가 '확인 필요'로 표시한다
+    const markdown = [
+      "# E2E 게시 검증 설문",
+      "",
+      "1. 유형 단서가 없는 문항입니다",
+      "",
+      "2. 또 다른 단서 없는 문항입니다",
+    ].join("\n");
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "publish-check.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(markdown, "utf8"),
+    });
+    await page.getByRole("button", { name: "업로드 및 문항 추출" }).click();
+    await page.waitForURL("**/staff/surveys/*/edit", { timeout: 30_000 });
+    const publishSurveyUrl = new URL(page.url()).pathname.replace("/edit", "");
+
+    // 편집 화면에 확인 필요 안내가 보인다
+    await expect(
+      page.getByText(/확인이 필요한 문항이 \d+개 있습니다/),
+    ).toBeVisible();
+
+    // 현황 화면: 미게시 경고 + 차단 사유 안내
+    await page.goto(publishSurveyUrl);
+    await expect(
+      page.getByText("아직 게시되지 않았습니다 — 응답자에게 보이지 않습니다"),
+    ).toBeVisible();
+    await expect(page.getByText(/'확인 필요' 상태의 문항이 \d+개/)).toBeVisible();
+
+    // 이 상태에서 게시를 시도하면 서버가 막는다
+    await page.getByRole("button", { name: "게시", exact: true }).click();
+    await expect(page.getByText(/확인 처리 후 게시해 주세요/)).toBeVisible();
+
+    // 편집 화면에서 '모두 확인 완료'로 처리 후 저장
+    await page.goto(`${publishSurveyUrl}/edit`);
+    await page.getByRole("button", { name: "모두 확인 완료로 표시" }).click();
+    await page.getByRole("button", { name: "저장" }).first().click();
+    await page.waitForURL(/\/staff\/surveys\/[^/]+$/);
+
+    // 이제 게시할 수 있다
+    await page.getByRole("button", { name: "게시", exact: true }).click();
+    await expect(page.getByText("설문을 게시했습니다.")).toBeVisible();
+    await expect(
+      page.getByText("게시 중 — 응답자에게 표시됩니다"),
+    ).toBeVisible();
+
+    // 정리
     await page.getByRole("button", { name: "설문 삭제" }).click();
     await page.getByRole("button", { name: "삭제", exact: true }).click();
     await page.waitForURL("**/staff");

@@ -31,8 +31,9 @@ export default async function RespondentsPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">응답자 계정</h1>
         <p className="text-sm text-muted-foreground">
-          응답자는 직접 회원 가입할 수 있으며, 계정은 전체 {maxRespondents}개까지
-          만들 수 있습니다. (현재 {accounts.length} / {maxRespondents})
+          응답자는 직접 회원 가입할 수 있습니다. 현재 계정{" "}
+          {accounts.length} / {maxRespondents}개 (최대 인원은 아래에서 1~20명
+          사이로 변경할 수 있습니다)
         </p>
       </div>
       <RespondentLimitCard

@@ -38,8 +38,24 @@ describeDb("최대 인원 설정 (DB 통합)", () => {
   it("1~20 범위 안의 값으로 변경된다", async () => {
     expect(await setMaxRespondents(20)).toBe(20);
     expect(await getMaxRespondents()).toBe(20);
-    expect(await setMaxRespondents(1)).toBe(1);
-    expect(await getMaxRespondents()).toBe(1);
+
+    // 하한은 기존 계정/응답 수에 막히지 않는 값으로 검증한다.
+    const accountCount = await prisma.respondentAccount.count();
+    const busiest = await prisma.survey.findFirst({
+      orderBy: { responseCount: "desc" },
+      select: { responseCount: true },
+    });
+    const lowest = Math.max(1, accountCount, busiest?.responseCount ?? 0);
+    expect(await setMaxRespondents(lowest)).toBe(lowest);
+    expect(await getMaxRespondents()).toBe(lowest);
+  });
+
+  it("기존 계정 수보다 작게 줄일 수 없다", async () => {
+    const accountCount = await prisma.respondentAccount.count();
+    if (accountCount === 0) return; // 계정이 없으면 검증 대상 아님
+    await expect(setMaxRespondents(accountCount - 1)).rejects.toThrow(
+      /줄일 수 없습니다/,
+    );
   });
 
   it("변경 시 기존 설문의 maxRespondents에도 반영된다", async () => {

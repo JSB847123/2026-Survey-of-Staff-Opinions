@@ -181,8 +181,9 @@ export function RespondentsManager({
           <CardHeader>
             <CardTitle className="text-base">계정 직접 만들기</CardTitle>
             <CardDescription>
-              ID와 비밀번호는 각각 숫자 4자리입니다. 응답자 회원 가입과 동일한
-              전체 {maxAccounts}개 제한이 적용됩니다.
+              ID와 비밀번호는 각각 숫자 4자리입니다. 응답자가 직접 회원 가입한
+              계정과 합쳐서, 위에서 설정한 최대 인원({maxAccounts}명)까지 만들 수
+              있습니다.
             </CardDescription>
           </CardHeader>
           <CardContent>

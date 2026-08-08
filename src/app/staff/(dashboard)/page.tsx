@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileUp } from "lucide-react";
+import { FileUp, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,9 +84,17 @@ export default async function StaffHomePage() {
                       문항 {survey._count.questions}개
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    응답 {survey.responseCount} / {survey.maxRespondents} ·{" "}
-                    {new Date(survey.createdAt).toLocaleDateString("ko-KR")}
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p>
+                      응답 {survey.responseCount} / {survey.maxRespondents} ·{" "}
+                      {new Date(survey.createdAt).toLocaleDateString("ko-KR")}
+                    </p>
+                    {survey.status !== "PUBLISHED" && (
+                      <p className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                        <TriangleAlert className="size-3.5" aria-hidden />
+                        응답자에게 보이지 않습니다 — 게시가 필요합니다
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </Link>
