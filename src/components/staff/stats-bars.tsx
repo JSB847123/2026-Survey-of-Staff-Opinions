@@ -31,6 +31,7 @@ export function StatsBars({
           </div>
 
           {q.type === "CHECKBOX" ? (
+            <>
             <ul className="space-y-2">
               {q.options.map((o) => (
                 <li key={o.optionId} className="space-y-1">
@@ -53,6 +54,25 @@ export function StatsBars({
                 </li>
               ))}
             </ul>
+            {/* '기타' 선택 시 직접 입력한 단답 */}
+            {q.textAnswers.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  기타 직접 입력 ({q.textAnswers.length}건)
+                </p>
+                <ul className="space-y-1">
+                  {q.textAnswers.map((answer, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md border bg-muted/30 px-3 py-1.5 text-sm"
+                    >
+                      {answer}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            </>
           ) : q.textAnswers.length > 0 ? (
             <ul className="space-y-2">
               {q.textAnswers.map((answer, i) => (

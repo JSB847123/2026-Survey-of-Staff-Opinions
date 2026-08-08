@@ -36,6 +36,16 @@ export const UNSUPPORTED_FILE_MESSAGE = `지원하지 않는 파일 형식입니
 
 export const CHECKBOX_CHARS = ["□", "☐", "☑", "■", "▢"] as const;
 
+/** '기타' 선택 시 직접 입력하는 단답의 최대 글자 수 */
+export const OTHER_TEXT_MAX_LENGTH = 20;
+
+/** 선택 후 직접 입력이 필요한 선택지로 판단할 표현 */
+export const OTHER_OPTION_KEYWORDS = ["기타", "직접 입력", "직접입력"] as const;
+
+export function looksLikeOtherOption(label: string): boolean {
+  return OTHER_OPTION_KEYWORDS.some((k) => label.includes(k));
+}
+
 /**
  * 운영자와 응답자는 서로 다른 쿠키를 사용한다.
  * (같은 쿠키를 공유하면 한 브라우저에서 응답자 화면을 확인하는 순간

@@ -4,15 +4,21 @@ import { AppError } from "@/lib/errors";
 import { staffLoginSchema } from "@/lib/validation";
 import { isRoleCodeConfigured, resolveStaffRole } from "@/lib/access-code";
 import { setSessionCookie } from "@/lib/session";
-import { clientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
+import {
+  clientIpFromHeaders,
+  isRateLimited,
+  recordFailure,
+} from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   return handleApi(async () => {
+    // brute-force 방어: 실패한 시도만 집계해 정상 로그인은 막지 않는다.
     const ip = clientIpFromHeaders(request.headers);
-    if (!rateLimit(`staff-login:${ip}`, 10, 60_000)) {
+    const rateKey = `staff-login:${ip}`;
+    if (isRateLimited(rateKey, 10, 60_000)) {
       throw new AppError(
         429,
         "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
@@ -34,6 +40,7 @@ export async function POST(request: NextRequest) {
     const role = resolveStaffRole(body.accessCode);
     // 선택한 역할(관리자/확인자)과 코드가 일치해야 로그인된다.
     if (!role || role !== body.role) {
+      recordFailure(rateKey, 60_000);
       throw new AppError(401, "Access Code가 올바르지 않습니다.");
     }
 

@@ -26,6 +26,30 @@ export function rateLimit(
   return true;
 }
 
+/**
+ * 기록된 실패 횟수가 한도를 넘었는지만 확인한다 (카운트는 증가시키지 않는다).
+ * 로그인처럼 '실패한 시도'만 제한해야 하는 경우에 사용한다.
+ */
+export function isRateLimited(
+  key: string,
+  limit: number,
+  windowMs: number,
+): boolean {
+  const now = Date.now();
+  const hits = (buckets.get(key) ?? []).filter((t) => now - t < windowMs);
+  buckets.set(key, hits);
+  return hits.length >= limit;
+}
+
+/** 실패한 시도를 기록한다. */
+export function recordFailure(key: string, windowMs: number): void {
+  const now = Date.now();
+  if (buckets.size > MAX_BUCKETS) buckets.clear();
+  const hits = (buckets.get(key) ?? []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  buckets.set(key, hits);
+}
+
 export function clientIpFromHeaders(headers: Headers): string {
   const fwd = headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();

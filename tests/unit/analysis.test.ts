@@ -32,17 +32,18 @@ afterEach(() => {
 });
 
 describe("AI provider - API key 미설정", () => {
-  it("OpenAI: OPENAI_API_KEY가 없으면 명확한 오류를 던진다", async () => {
+  // 환경변수와 설정 화면 어디에도 키가 없을 때의 동작을 검증한다.
+  it("OpenAI: 키가 없으면 설정 안내를 담은 오류를 던진다", async () => {
     delete process.env.OPENAI_API_KEY;
     await expect(OpenAISurveyAnalysisProvider.analyze(input)).rejects.toThrow(
-      /OPENAI_API_KEY/,
+      /OpenAI API 키가 설정되지 않았습니다[\s\S]*시스템 설정/,
     );
   });
 
-  it("DeepSeek: DEEPSEEK_API_KEY가 없으면 명확한 오류를 던진다", async () => {
+  it("DeepSeek: 키가 없으면 설정 안내를 담은 오류를 던진다", async () => {
     delete process.env.DEEPSEEK_API_KEY;
     await expect(DeepSeekSurveyAnalysisProvider.analyze(input)).rejects.toThrow(
-      /DEEPSEEK_API_KEY/,
+      /DeepSeek API 키가 설정되지 않았습니다[\s\S]*시스템 설정/,
     );
   });
 });

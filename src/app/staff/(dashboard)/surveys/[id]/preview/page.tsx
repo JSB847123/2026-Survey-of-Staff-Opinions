@@ -45,6 +45,7 @@ export default async function SurveyPreviewPage({
         id: o.id,
         order: o.order,
         label: o.label,
+        allowsText: o.allowsText,
       })),
     })),
   };

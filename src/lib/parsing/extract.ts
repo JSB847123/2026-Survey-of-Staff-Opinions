@@ -1,5 +1,5 @@
 import type { QuestionType } from "@prisma/client";
-import { CHECKBOX_CHARS } from "../constants";
+import { CHECKBOX_CHARS, looksLikeOtherOption } from "../constants";
 import type { ParsedDocument, ParsedOption, ParsedQuestion } from "./types";
 
 /** "1." / "1)" / "1-1." / "문1." / "문 1." 형태의 문제번호 */
@@ -123,7 +123,12 @@ export function extractSurveyStructure(rawLines: string[]): ParsedDocument {
         const optionPart = current.title.slice(inlineCheckboxIdx);
         current.title = current.title.slice(0, inlineCheckboxIdx).trim();
         for (const label of extractOptionsFromLine(optionPart)) {
-          current.options.push({ order: current.options.length + 1, label });
+          current.options.push({
+            order: current.options.length + 1,
+            label,
+            // '기타'류 선택지는 직접 입력이 필요한 것으로 표시한다.
+            allowsText: looksLikeOtherOption(label),
+          });
         }
       }
       continue;
@@ -137,7 +142,12 @@ export function extractSurveyStructure(rawLines: string[]): ParsedDocument {
         continue;
       }
       for (const label of extractOptionsFromLine(line)) {
-        current.options.push({ order: current.options.length + 1, label });
+        current.options.push({
+            order: current.options.length + 1,
+            label,
+            // '기타'류 선택지는 직접 입력이 필요한 것으로 표시한다.
+            allowsText: looksLikeOtherOption(label),
+          });
       }
       continue;
     }

@@ -69,7 +69,11 @@ export async function POST(request: NextRequest) {
             required: q.required,
             needsReview: q.needsReview,
             options: {
-              create: q.options.map((o) => ({ order: o.order, label: o.label })),
+              create: q.options.map((o) => ({
+                order: o.order,
+                label: o.label,
+                allowsText: o.allowsText,
+              })),
             },
           })),
         },

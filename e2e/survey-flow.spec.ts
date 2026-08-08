@@ -514,6 +514,116 @@ test.describe.serial("설문 전체 흐름", () => {
     await context.close();
   });
 
+  test("AI API 키를 화면에서 설정하고 삭제할 수 있다", async ({ page }) => {
+    await staffLogin(page, "admin", ADMIN_CODE);
+    await page.goto("/staff/settings");
+
+    await expect(page.getByText("AI API 키")).toBeVisible();
+
+    // 키 입력 → 설정됨으로 바뀌고 마스킹되어 표시된다
+    await page.getByLabel(/OpenAI|API 키/).first().fill("sk-e2e-test-key-1234");
+    await page
+      .getByRole("button", { name: "저장" })
+      .first()
+      .click();
+    await expect(
+      page.getByText("OpenAI API 키를 저장했습니다."),
+    ).toBeVisible();
+    await expect(page.getByText(/설정됨 \(설정 화면\)/).first()).toBeVisible();
+    // 입력한 키 원문은 화면에 노출되지 않는다
+    await expect(page.getByText("sk-e2e-test-key-1234")).toHaveCount(0);
+    await expect(page.getByText(/••••••••1234/)).toBeVisible();
+
+    // 삭제하면 다시 미설정 상태로 돌아간다
+    await page.getByRole("button", { name: "삭제" }).first().click();
+    await expect(
+      page.getByText("OpenAI API 키를 삭제했습니다."),
+    ).toBeVisible();
+  });
+
+  test("체크박스 '기타' 선택 시 20자 이내 단답을 입력해 제출한다", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // 관리자: '기타'가 포함된 설문 업로드 후 게시
+    await staffLogin(page, "admin", ADMIN_CODE);
+    // 이전 실행 잔여 데이터 정리 (계정이 남아 있으면 회원 가입이 막힌다)
+    await deleteTestSurveys(page, "E2E 기타 입력 설문");
+    await deleteRespondentAccount(page, "0077");
+    await page.goto("/staff/surveys/new");
+    const markdown = [
+      "# E2E 기타 입력 설문",
+      "",
+      "1. 가장 시급한 개선 과제는 무엇입니까?",
+      "- [ ] 업무 분장",
+      "- [ ] 시설 개선",
+      "- [ ] 기타",
+    ].join("\n");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "other-option.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(markdown, "utf8"),
+    });
+    await page.getByRole("button", { name: "업로드 및 문항 추출" }).click();
+    await page.waitForURL("**/staff/surveys/*/edit", { timeout: 30_000 });
+
+    // '기타' 선택지에 직접 입력 토글이 켜져 있어야 한다
+    const otherRow = page.locator("li", {
+      has: page.getByLabel("문항 1 선택지 3"),
+    });
+    await expect(otherRow.getByRole("switch").first()).toBeChecked();
+
+    await page.getByRole("button", { name: "저장" }).first().click();
+    await page.waitForURL(/\/staff\/surveys\/[^/]+$/);
+    const otherSurveyUrl = new URL(page.url()).pathname;
+    const respondentPath = new URL(
+      await page.getByLabel("설문 링크").inputValue(),
+    ).pathname;
+    await page.getByRole("button", { name: "게시", exact: true }).click();
+    await expect(page.getByText("설문을 게시했습니다.")).toBeVisible();
+
+    // 응답자: 기타 체크 → 입력란 등장 → 20자 제한 확인 → 제출
+    const respondentContext = await browser.newContext();
+    const respondent = await respondentContext.newPage();
+    await respondent.goto("/respondent/signup");
+    await respondent.getByLabel("아이디 (숫자 4자리)").fill("0077");
+    await respondent.getByLabel("비밀번호 (숫자 4자리)").fill("0077");
+    await respondent.getByRole("button", { name: "회원 가입" }).click();
+    await respondent.waitForURL("**/respondent/surveys");
+
+    await respondent.goto(respondentPath);
+    const otherInput = respondent.getByLabel(/1번 문항 기타 내용/);
+    await expect(otherInput).toHaveCount(0); // 체크 전에는 입력란이 없다
+
+    await respondent.getByText("기타", { exact: true }).click();
+    await expect(otherInput).toBeVisible();
+
+    // 20자를 넘겨 입력해도 20자로 잘린다
+    await otherInput.fill("가나다라마바사아자차카타파하12345678");
+    expect((await otherInput.inputValue()).length).toBe(20);
+
+    await otherInput.fill("정보시스템 개선");
+    await respondent.getByRole("button", { name: "제출하기" }).click();
+    await respondent.getByRole("button", { name: "제출", exact: true }).click();
+    await respondent.waitForURL("**/done");
+
+    // 운영자 통계에 기타 입력값이 보인다
+    await page.goto(otherSurveyUrl);
+    await expect(page.getByText(/기타 직접 입력/)).toBeVisible();
+    await expect(page.getByText("정보시스템 개선")).toBeVisible();
+
+    // 정리
+    await page.getByRole("button", { name: "설문 삭제" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await page.waitForURL("**/staff");
+    await deleteRespondentAccount(page, "0077");
+
+    await respondentContext.close();
+    await context.close();
+  });
+
   test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {
     await staffLogin(page, "admin", ADMIN_CODE);
     await page.goto(surveyUrl);

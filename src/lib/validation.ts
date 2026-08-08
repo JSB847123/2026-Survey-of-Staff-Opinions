@@ -43,6 +43,16 @@ export const surveyMetaSchema = z.object({
   description: z.string().trim().max(2000).optional().nullable(),
 });
 
+export const aiKeySchema = z.object({
+  provider: z.enum(["openai", "deepseek"]),
+  /** 빈 문자열이면 저장된 키를 삭제한다. */
+  apiKey: z
+    .string()
+    .max(500, "API 키가 너무 깁니다.")
+    .optional()
+    .nullable(),
+});
+
 export const questionTypeSchema = z.enum(["CHECKBOX", "SHORT_TEXT", "LONG_TEXT"]);
 
 export const questionEditSchema = z.object({
@@ -59,6 +69,7 @@ export const questionEditSchema = z.object({
         id: z.string().optional(),
         order: z.number().int().min(1),
         label: z.string().trim().min(1, "선택지 내용을 입력해 주세요.").max(300),
+        allowsText: z.boolean().optional().default(false),
       }),
     )
     .max(50),

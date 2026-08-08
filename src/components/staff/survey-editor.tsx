@@ -36,6 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/client-api";
+import { OTHER_TEXT_MAX_LENGTH } from "@/lib/constants";
 import {
   QUESTION_TYPE_LABEL,
   type SurveyDto,
@@ -102,8 +103,8 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
         required: false,
         needsReview: false,
         options: [
-          { id: tempId(), order: 1, label: "" },
-          { id: tempId(), order: 2, label: "" },
+          { id: tempId(), order: 1, label: "", allowsText: false },
+          { id: tempId(), order: 2, label: "", allowsText: false },
         ],
       },
     ]);
@@ -125,7 +126,12 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
               ...q,
               options: [
                 ...q.options,
-                { id: tempId(), order: q.options.length + 1, label: "" },
+                {
+                  id: tempId(),
+                  order: q.options.length + 1,
+                  label: "",
+                  allowsText: false,
+                },
               ],
             }
           : q,
@@ -141,6 +147,26 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
               ...q,
               options: q.options.map((o) =>
                 o.id === optionId ? { ...o, label } : o,
+              ),
+            }
+          : q,
+      ),
+    );
+  };
+
+  /** '기타'처럼 선택 후 직접 입력이 필요한 선택지인지 전환한다. */
+  const toggleOptionText = (
+    questionId: string,
+    optionId: string,
+    allowsText: boolean,
+  ) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options.map((o) =>
+                o.id === optionId ? { ...o, allowsText } : o,
               ),
             }
           : q,
@@ -225,6 +251,7 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
                     id: isTempId(o.id) ? undefined : o.id,
                     order: oi + 1,
                     label: o.label.trim(),
+                    allowsText: o.allowsText,
                   }))
                 : [],
           })),
@@ -444,7 +471,8 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
                 <Label>선택지</Label>
                 <ul className="space-y-2">
                   {q.options.map((o, oi) => (
-                    <li key={o.id} className="flex items-center gap-1">
+                    <li key={o.id} className="space-y-1">
+                      <div className="flex items-center gap-1">
                       <Input
                         value={o.label}
                         onChange={(e) => updateOption(q.id, o.id, e.target.value)}
@@ -478,6 +506,18 @@ export function SurveyEditor({ initialSurvey }: { initialSurvey: SurveyDto }) {
                       >
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
+                      </div>
+                      <Label className="ml-1 flex w-fit items-center gap-2 text-xs font-normal text-muted-foreground">
+                        <Switch
+                          checked={o.allowsText}
+                          onCheckedChange={(checked) =>
+                            toggleOptionText(q.id, o.id, Boolean(checked))
+                          }
+                          aria-label={`문항 ${qi + 1} 선택지 ${oi + 1} 직접 입력`}
+                        />
+                        선택 시 직접 입력({OTHER_TEXT_MAX_LENGTH}자 이내) —
+                        &apos;기타&apos; 등
+                      </Label>
                     </li>
                   ))}
                 </ul>

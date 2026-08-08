@@ -10,6 +10,8 @@ export type UploadedFile = {
 export type ParsedOption = {
   order: number;
   label: string;
+  /** '기타'처럼 선택 후 직접 입력이 필요한 선택지 */
+  allowsText: boolean;
 };
 
 export type ParsedQuestion = {

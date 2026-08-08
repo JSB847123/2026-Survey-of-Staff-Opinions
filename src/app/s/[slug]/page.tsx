@@ -179,6 +179,7 @@ export default async function RespondentSurveyPage({
         id: o.id,
         order: o.order,
         label: o.label,
+        allowsText: o.allowsText,
       })),
     })),
   };

@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/client-api";
+import { OTHER_TEXT_MAX_LENGTH } from "@/lib/constants";
 import type { SurveyDto } from "@/lib/survey-dto";
 
 type AnswerState = {
@@ -79,8 +80,24 @@ export function SurveyAnswerForm({
 
   const validate = (): boolean => {
     for (const q of survey.questions) {
-      if (!q.required) continue;
       const answer = getAnswer(q.id);
+
+      // '기타'를 선택했다면 필수 여부와 관계없이 내용을 입력해야 한다.
+      const selectedOther = q.options.find(
+        (o) => o.allowsText && answer.selectedOptionIds.includes(o.id),
+      );
+      if (selectedOther && answer.textValue.trim().length === 0) {
+        toast.error(
+          `'${selectedOther.label}'을(를) 선택하셨습니다. 내용을 입력해 주세요.`,
+        );
+        document.getElementById(`question-${q.id}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        return false;
+      }
+
+      if (!q.required) continue;
       if (q.type === "CHECKBOX" && answer.selectedOptionIds.length === 0) {
         toast.error(`필수 문항에 응답해 주세요: ${q.order}. ${q.title}`);
         document.getElementById(`question-${q.id}`)?.scrollIntoView({
@@ -123,7 +140,8 @@ export function SurveyAnswerForm({
               questionId: q.id,
               selectedOptionIds:
                 q.type === "CHECKBOX" ? answer.selectedOptionIds : undefined,
-              textValue: q.type !== "CHECKBOX" ? answer.textValue : undefined,
+              // 체크박스 문항도 '기타' 선택 시에는 단답을 함께 보낸다.
+              textValue: answer.textValue || undefined,
             };
           }),
         }),
@@ -189,6 +207,29 @@ export function SurveyAnswerForm({
                           />
                           <span>{o.label}</span>
                         </Label>
+                        {/* '기타'처럼 직접 입력이 필요한 선택지는 체크했을 때 단답 입력란을 연다. */}
+                        {o.allowsText && checked && (
+                          <div className="mt-1 mb-2 ml-10 space-y-1">
+                            <Input
+                              value={answer.textValue}
+                              onChange={(e) =>
+                                setText(
+                                  q.id,
+                                  e.target.value.slice(0, OTHER_TEXT_MAX_LENGTH),
+                                )
+                              }
+                              maxLength={OTHER_TEXT_MAX_LENGTH}
+                              placeholder={`내용을 입력해 주세요 (${OTHER_TEXT_MAX_LENGTH}자 이내)`}
+                              aria-label={`${q.order}번 문항 ${o.label} 내용`}
+                              className="h-10"
+                              autoFocus
+                            />
+                            <p className="text-right text-xs text-muted-foreground tabular-nums">
+                              {answer.textValue.length} /{" "}
+                              {OTHER_TEXT_MAX_LENGTH}자
+                            </p>
+                          </div>
+                        )}
                       </li>
                     );
                   })}

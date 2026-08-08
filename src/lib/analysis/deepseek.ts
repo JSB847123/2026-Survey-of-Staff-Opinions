@@ -1,6 +1,7 @@
 import "server-only";
 import OpenAI from "openai";
 import { AppError } from "../errors";
+import { getAiApiKey } from "../ai-keys";
 import { buildUserPrompt, systemPromptFor } from "./prompt";
 import { ANALYSIS_JSON_SCHEMA } from "./json-schema";
 import { parseAnalysisJson } from "./openai";
@@ -17,11 +18,11 @@ export const DeepSeekSurveyAnalysisProvider: SurveyAnalysisProvider = {
   model: DEEPSEEK_MODEL,
 
   async analyze(input: SurveyAnalysisInput): Promise<SurveyAnalysisResult> {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = await getAiApiKey("deepseek");
     if (!apiKey) {
       throw new AppError(
         503,
-        "DEEPSEEK_API_KEY 환경변수가 설정되지 않았습니다. 관리자에게 문의해 주세요.",
+        "DeepSeek API 키가 설정되지 않았습니다. 관리자가 [시스템 설정] 화면에서 키를 입력해 주세요.",
       );
     }
 

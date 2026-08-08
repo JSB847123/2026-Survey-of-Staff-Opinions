@@ -80,10 +80,12 @@ export async function POST(request: NextRequest, { params }: Params) {
             percentage: o.percentage,
           })),
         })),
+      // 주관식 문항과, 체크박스의 '기타' 직접 입력 답변을 함께 전달한다.
       textAnswers: stats.questions
-        .filter((q) => q.type !== "CHECKBOX")
+        .filter((q) => q.textAnswers.length > 0)
         .map((q) => ({
-          questionTitle: q.title,
+          questionTitle:
+            q.type === "CHECKBOX" ? `${q.title} (기타 직접 입력)` : q.title,
           answers: q.textAnswers,
         })),
     };

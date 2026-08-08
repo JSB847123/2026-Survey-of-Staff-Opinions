@@ -42,6 +42,7 @@ export default async function SurveyEditPage({
         id: o.id,
         order: o.order,
         label: o.label,
+        allowsText: o.allowsText,
       })),
     })),
   };

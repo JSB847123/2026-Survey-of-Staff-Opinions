@@ -4,6 +4,7 @@ import { requireRespondent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { submitAnswersSchema } from "@/lib/validation";
+import { OTHER_TEXT_MAX_LENGTH } from "@/lib/constants";
 import { submitSurveyResponse, type ValidatedAnswer } from "@/lib/submit";
 
 export const runtime = "nodejs";
@@ -40,9 +41,9 @@ export async function POST(request: NextRequest) {
       const textValue = (answer?.textValue ?? "").trim();
 
       if (question.type === "CHECKBOX") {
-        const validIds = new Set(question.options.map((o) => o.id));
+        const optionsById = new Map(question.options.map((o) => [o.id, o]));
         for (const optionId of optionIds) {
-          if (!validIds.has(optionId)) {
+          if (!optionsById.has(optionId)) {
             throw new AppError(400, "잘못된 선택지가 포함되어 있습니다.");
           }
         }
@@ -52,11 +53,35 @@ export async function POST(request: NextRequest) {
             `필수 문항에 응답해 주세요: ${question.title}`,
           );
         }
-        if (optionIds.length > 0) {
+
+        // '기타'처럼 직접 입력이 필요한 선택지를 고른 경우에만 단답을 저장한다.
+        const uniqueOptionIds = [...new Set(optionIds)];
+        const otherOption = uniqueOptionIds
+          .map((optionId) => optionsById.get(optionId)!)
+          .find((option) => option.allowsText);
+
+        let otherText: string | null = null;
+        if (otherOption) {
+          if (textValue.length > OTHER_TEXT_MAX_LENGTH) {
+            throw new AppError(
+              400,
+              `'${otherOption.label}' 항목은 ${OTHER_TEXT_MAX_LENGTH}자 이내로 입력해 주세요.`,
+            );
+          }
+          if (question.required && textValue.length === 0) {
+            throw new AppError(
+              400,
+              `'${otherOption.label}'을(를) 선택하셨습니다. 내용을 입력해 주세요.`,
+            );
+          }
+          otherText = textValue.length > 0 ? textValue : null;
+        }
+
+        if (uniqueOptionIds.length > 0) {
           validatedAnswers.push({
             questionId: question.id,
-            textValue: null,
-            optionIds: [...new Set(optionIds)],
+            textValue: otherText,
+            optionIds: uniqueOptionIds,
           });
         }
       } else {

@@ -4,6 +4,8 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { getStaffSession } from "@/lib/session";
 import { describeStorage } from "@/lib/storage";
 import { getMaxRespondents } from "@/lib/settings";
+import { getAiKeyStatuses } from "@/lib/ai-keys";
+import { AiKeysCard } from "@/components/staff/ai-keys-card";
 import {
   Card,
   CardContent,
@@ -40,6 +42,7 @@ export default async function SettingsPage() {
 
   const storage = describeStorage();
   const maxRespondents = await getMaxRespondents();
+  const aiKeys = await getAiKeyStatuses();
 
   // 값 자체는 절대 노출하지 않고 설정 여부만 표시한다.
   const envs: [string, boolean][] = [
@@ -70,6 +73,8 @@ export default async function SettingsPage() {
           관리자 전용 화면입니다. 환경 구성 상태를 확인합니다.
         </p>
       </div>
+
+      <AiKeysCard initialKeys={aiKeys} />
 
       <Card>
         <CardHeader>
@@ -129,19 +134,6 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">AI 모델</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm">
-          <p>
-            OpenAI: <span className="font-mono">gpt-5.6-luna</span>
-          </p>
-          <p>
-            DeepSeek: <span className="font-mono">deepseek-v4-flash</span>
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

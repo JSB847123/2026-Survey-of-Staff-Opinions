@@ -59,6 +59,9 @@ model SurveySourceFile {
 model AppSetting {
   id             String   @id @default("singleton")
   maxRespondents Int      @default(13)
+  /// AI API 키는 평문으로 저장하지 않고 암호화해서 보관한다 (server-only에서만 복호화).
+  openaiApiKeyEnc   String?
+  deepseekApiKeyEnc String?
   updatedAt      DateTime @updatedAt
 }
 
@@ -85,6 +88,8 @@ model QuestionOption {
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   order      Int
   label      String
+  /// '기타'처럼 선택 후 직접 입력이 필요한 선택지 (단답 20자 이내)
+  allowsText Boolean  @default(false)
 
   selections AnswerSelection[]
 

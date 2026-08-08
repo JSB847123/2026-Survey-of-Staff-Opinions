@@ -3,6 +3,8 @@ export type SurveyOptionDto = {
   id: string;
   order: number;
   label: string;
+  /** '기타'처럼 선택 후 직접 입력(단답)이 필요한 선택지 */
+  allowsText: boolean;
 };
 
 export type SurveyQuestionDto = {

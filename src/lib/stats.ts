@@ -74,12 +74,10 @@ export async function computeSurveyStats(surveyId: string): Promise<SurveyStats>
       };
     });
 
-    const textAnswers =
-      q.type === "CHECKBOX"
-        ? []
-        : answersForQuestion
-            .map((a) => (a.textValue ?? "").trim())
-            .filter((t) => t.length > 0);
+    // 체크박스 문항도 '기타' 선택 시 직접 입력한 단답이 있으므로 함께 모은다.
+    const textAnswers = answersForQuestion
+      .map((a) => (a.textValue ?? "").trim())
+      .filter((t) => t.length > 0);
 
     return {
       questionId: q.id,

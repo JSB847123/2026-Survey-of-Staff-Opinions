@@ -126,6 +126,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
                   create: newOptions.map((o) => ({
                     order: o.order,
                     label: o.label,
+                    allowsText: o.allowsText,
                   })),
                 },
               },
@@ -142,13 +143,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
               if (
                 before &&
                 before.order === option.order &&
-                before.label === option.label
+                before.label === option.label &&
+                before.allowsText === option.allowsText
               ) {
                 continue;
               }
               await tx.questionOption.update({
                 where: { id: option.id },
-                data: { order: option.order, label: option.label },
+                data: {
+                  order: option.order,
+                  label: option.label,
+                  allowsText: option.allowsText,
+                },
               });
             }
           } else {
@@ -165,6 +171,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
                   create: incoming.options.map((o) => ({
                     order: o.order,
                     label: o.label,
+                    allowsText: o.allowsText,
                   })),
                 },
               },

@@ -5,7 +5,11 @@ import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { respondentLoginSchema } from "@/lib/validation";
 import { setSessionCookie } from "@/lib/session";
-import { clientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
+import {
+  clientIpFromHeaders,
+  isRateLimited,
+  recordFailure,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -16,8 +20,10 @@ const INVALID_MESSAGE = "ID 또는 비밀번호가 올바르지 않습니다.";
 
 export async function POST(request: NextRequest) {
   return handleApi(async () => {
+    // brute-force 방어: 실패한 시도만 집계해 정상 로그인은 막지 않는다.
     const ip = clientIpFromHeaders(request.headers);
-    if (!rateLimit(`respondent-login:${ip}`, 10, 60_000)) {
+    const rateKey = `respondent-login:${ip}`;
+    if (isRateLimited(rateKey, 10, 60_000)) {
       throw new AppError(
         429,
         "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
@@ -30,6 +36,7 @@ export async function POST(request: NextRequest) {
       where: { loginId: body.loginId },
     });
     if (!account || !account.active) {
+      recordFailure(rateKey, 60_000);
       throw new AppError(401, INVALID_MESSAGE);
     }
 
@@ -54,6 +61,7 @@ export async function POST(request: NextRequest) {
               : null,
         },
       });
+      recordFailure(rateKey, 60_000);
       throw new AppError(401, INVALID_MESSAGE);
     }
 
