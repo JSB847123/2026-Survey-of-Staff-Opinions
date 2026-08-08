@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/db";
 import { getStaffSession } from "@/lib/session";
 import { computeSurveyStats } from "@/lib/stats";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,8 @@ export default async function SurveyDetailPage({
   });
 
   const stats = await computeSurveyStats(id);
+  // 제출/미제출/응답률이 공유하는 분모 (참여 대상 인원)
+  const participantTotal = stats.submittedCount + stats.notSubmittedCount;
 
   const statusVariant =
     survey.status === "PUBLISHED"
@@ -112,25 +115,36 @@ export default async function SurveyDetailPage({
         needsReviewCount={needsReviewCount}
       />
 
+      {/* 세 숫자(제출/미제출/응답률)는 모두 '참여 대상' 기준으로 일관되게 계산된다. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>응답</CardDescription>
+            <CardDescription>제출 완료</CardDescription>
             <CardTitle className="text-3xl tabular-nums">
-              {stats.submittedCount}{" "}
+              {stats.submittedCount}
               <span className="text-base font-normal text-muted-foreground">
-                / {stats.maxRespondents}
+                {" "}
+                / {participantTotal}명
               </span>
             </CardTitle>
           </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            참여 대상(활성 응답자 계정) 기준
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>미응답</CardDescription>
+            <CardDescription>미제출</CardDescription>
             <CardTitle className="text-3xl tabular-nums">
               {stats.notSubmittedCount}
+              <span className="text-base font-normal text-muted-foreground">
+                명
+              </span>
             </CardTitle>
           </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            아직 응답하지 않은 계정
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
@@ -139,16 +153,37 @@ export default async function SurveyDetailPage({
               {stats.responseRate}%
             </CardTitle>
           </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            {stats.submittedCount} / {participantTotal}명
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>상태</CardDescription>
-            <CardTitle className="text-3xl">
-              {SURVEY_STATUS_LABEL[survey.status]}
+            <CardDescription>응답자 계정</CardDescription>
+            <CardTitle className="text-3xl tabular-nums">
+              {stats.respondentTotal}
+              <span className="text-base font-normal text-muted-foreground">
+                {" "}
+                / {stats.maxRespondents}명
+              </span>
             </CardTitle>
           </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            가입 계정 수 / 최대 인원
+          </CardContent>
         </Card>
       </div>
+
+      {participantTotal === 0 && (
+        <Alert>
+          <Users className="size-4" />
+          <AlertTitle>아직 응답자 계정이 없습니다</AlertTitle>
+          <AlertDescription>
+            응답자가 회원 가입하거나 관리자가 계정을 만들면 참여 대상에
+            반영됩니다.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SurveyLinkCard slug={survey.slug} status={survey.status} />

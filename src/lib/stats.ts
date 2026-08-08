@@ -32,22 +32,28 @@ export type SurveyStats = {
  * 표본이 최대 13명이므로 메모리 집계로 충분하다.
  */
 export async function computeSurveyStats(surveyId: string): Promise<SurveyStats> {
-  const [survey, accounts, questions, responses] = await Promise.all([
-    prisma.survey.findUniqueOrThrow({ where: { id: surveyId } }),
-    // 응답자 계정은 전역이므로 활성 계정 전체가 이 설문의 잠재 응답자다.
-    prisma.respondentAccount.count({ where: { active: true } }),
-    prisma.question.findMany({
-      where: { surveyId },
-      orderBy: { order: "asc" },
-      include: { options: { orderBy: { order: "asc" } } },
-    }),
-    prisma.surveyResponse.findMany({
-      where: { surveyId },
-      include: {
-        answers: { include: { selections: true } },
-      },
-    }),
-  ]);
+  const [survey, accounts, notSubmittedAccounts, questions, responses] =
+    await Promise.all([
+      prisma.survey.findUniqueOrThrow({ where: { id: surveyId } }),
+      // 응답자 계정은 전역이므로 활성 계정 전체가 이 설문의 참여 대상이다.
+      prisma.respondentAccount.count({ where: { active: true } }),
+      // 미제출은 뺄셈이 아니라 '아직 이 설문에 응답하지 않은 활성 계정'을 직접 센다.
+      // (비활성 계정이 이미 제출한 경우에도 숫자가 어긋나지 않는다.)
+      prisma.respondentAccount.count({
+        where: { active: true, responses: { none: { surveyId } } },
+      }),
+      prisma.question.findMany({
+        where: { surveyId },
+        orderBy: { order: "asc" },
+        include: { options: { orderBy: { order: "asc" } } },
+      }),
+      prisma.surveyResponse.findMany({
+        where: { surveyId },
+        include: {
+          answers: { include: { selections: true } },
+        },
+      }),
+    ]);
 
   const submittedCount = responses.length;
   const denominator = submittedCount > 0 ? submittedCount : 1;
@@ -89,14 +95,16 @@ export async function computeSurveyStats(surveyId: string): Promise<SurveyStats>
     };
   });
 
+  // 응답률 분모는 '제출한 사람 + 아직 제출하지 않은 참여 대상'으로,
+  // 화면의 제출/미제출 숫자와 항상 일관되게 맞춘다.
+  const rateBase = submittedCount + notSubmittedAccounts;
+
   return {
     respondentTotal: accounts,
     submittedCount,
-    notSubmittedCount: Math.max(0, accounts - submittedCount),
+    notSubmittedCount: notSubmittedAccounts,
     responseRate:
-      accounts > 0
-        ? Math.round((submittedCount / accounts) * 1000) / 10
-        : 0,
+      rateBase > 0 ? Math.round((submittedCount / rateBase) * 1000) / 10 : 0,
     maxRespondents: survey.maxRespondents,
     questions: questionStats,
   };
