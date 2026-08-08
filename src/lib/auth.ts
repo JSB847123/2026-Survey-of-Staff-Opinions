@@ -1,14 +1,15 @@
 import "server-only";
 import { AppError } from "./errors";
 import {
-  getSession,
+  getRespondentSession,
+  getStaffSession,
   type RespondentSession,
   type StaffSession,
 } from "./session";
 
 export async function requireStaff(): Promise<StaffSession> {
-  const session = await getSession();
-  if (!session || session.kind !== "staff") {
+  const session = await getStaffSession();
+  if (!session) {
     throw new AppError(401, "로그인이 필요합니다.");
   }
   return session;
@@ -23,8 +24,8 @@ export async function requireAdmin(): Promise<StaffSession> {
 }
 
 export async function requireRespondent(): Promise<RespondentSession> {
-  const session = await getSession();
-  if (!session || session.kind !== "respondent") {
+  const session = await getRespondentSession();
+  if (!session) {
     throw new AppError(401, "로그인이 필요합니다.");
   }
   return session;

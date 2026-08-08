@@ -458,6 +458,62 @@ test.describe.serial("설문 전체 흐름", () => {
     await page.waitForURL("**/staff");
   });
 
+  test("세션 분리: 응답자로 로그인해도 운영자 세션이 유지된다", async ({
+    page,
+  }) => {
+    expect(surveyUrl).toBeTruthy();
+
+    // 1) 운영자로 로그인
+    await staffLogin(page, "admin", ADMIN_CODE);
+
+    // 2) 같은 브라우저에서 응답자로도 로그인 (예전에는 이 시점에 운영자 세션이 날아갔다)
+    await page.goto("/respondent/login");
+    await page.getByLabel("아이디 (숫자 4자리)").fill(RESPONDENT_ID);
+    await page.getByLabel("비밀번호 (숫자 4자리)").fill(RESPONDENT_PW);
+    await page.getByRole("button", { name: "로그인", exact: true }).click();
+    await page.waitForURL("**/respondent/surveys");
+
+    // 3) 운영자 화면들이 재로그인 없이 그대로 열려야 한다
+    for (const path of [
+      surveyUrl,
+      `${surveyUrl}/edit`,
+      `${surveyUrl}/preview`,
+      `${surveyUrl}/analysis`,
+    ]) {
+      await page.goto(path);
+      expect(new URL(page.url()).pathname).toBe(path);
+    }
+    await expect(page.getByText("AI 설문 분석")).toBeVisible();
+
+    // 4) 운영자 로그아웃 후에도 응답자 세션은 살아 있다
+    await page.goto("/staff");
+    await staffLogout(page);
+    await page.goto("/respondent/surveys");
+    expect(new URL(page.url()).pathname).toBe("/respondent/surveys");
+  });
+
+  test("세션 만료 시 로그인하면 원래 보려던 화면으로 돌아간다", async ({
+    browser,
+  }) => {
+    expect(surveyUrl).toBeTruthy();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // 로그인 없이 편집 화면 접근 → 로그인 화면으로 이동(next 유지)
+    await page.goto(`${surveyUrl}/edit`);
+    await page.waitForURL("**/staff/login**");
+    expect(page.url()).toContain("next=");
+
+    // 로그인하면 편집 화면으로 복귀
+    await page.getByRole("button", { name: "관리자 로그인" }).click();
+    await page.getByLabel("Access Code").fill(ADMIN_CODE);
+    await page.getByRole("button", { name: "로그인", exact: true }).click();
+    await page.waitForURL(`**${surveyUrl}/edit`);
+    expect(new URL(page.url()).pathname).toBe(`${surveyUrl}/edit`);
+
+    await context.close();
+  });
+
   test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {
     await staffLogin(page, "admin", ADMIN_CODE);
     await page.goto(surveyUrl);

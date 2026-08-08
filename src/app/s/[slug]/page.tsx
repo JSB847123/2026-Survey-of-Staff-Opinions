@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, LogIn, UserRoundPlus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getRespondentSession } from "@/lib/session";
 import { ALREADY_SUBMITTED_MESSAGE } from "@/lib/constants";
 import type { SurveyDto } from "@/lib/survey-dto";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -88,9 +88,9 @@ export default async function RespondentSurveyPage({
     );
   }
 
-  const session = await getSession();
+  const session = await getRespondentSession();
 
-  if (!session || session.kind !== "respondent") {
+  if (!session) {
     const next = encodeURIComponent(`/s/${slug}`);
     return (
       <Shell>

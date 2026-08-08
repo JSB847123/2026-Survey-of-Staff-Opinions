@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getStaffSession } from "@/lib/session";
 import { getMaxRespondents } from "@/lib/settings";
 import { RespondentsManager } from "@/components/staff/respondents-manager";
 import { RespondentLimitCard } from "@/components/staff/respondent-limit-card";
@@ -9,8 +9,8 @@ export const metadata: Metadata = { title: "응답자 계정" };
 export const dynamic = "force-dynamic";
 
 export default async function RespondentsPage() {
-  const session = await getSession();
-  const isAdmin = session?.kind === "staff" && session.role === "admin";
+  const session = await getStaffSession();
+  const isAdmin = session?.role === "admin";
 
   const [accounts, maxRespondents] = await Promise.all([
     prisma.respondentAccount.findMany({

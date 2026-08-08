@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getStaffSession } from "@/lib/session";
 import { computeSurveyStats } from "@/lib/stats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,8 +33,8 @@ export default async function SurveyDetailPage({
   params,
 }: PageProps<"/staff/surveys/[id]">) {
   const { id } = await params;
-  const session = await getSession();
-  const isAdmin = session?.kind === "staff" && session.role === "admin";
+  const session = await getStaffSession();
+  const isAdmin = session?.role === "admin";
 
   const survey = await prisma.survey.findUnique({
     where: { id },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Loader2, ShieldCheck, UserRoundCog } from "lucide-react";
 import { toast } from "sonner";
@@ -23,8 +23,17 @@ const ROLE_LABEL: Record<StaffRole, string> = {
   reviewer: "확인자",
 };
 
+/** open redirect 방지: 운영자 화면 내부 경로만 허용 */
+function safeNext(next: string | null): string {
+  if (next && next.startsWith("/staff") && !next.startsWith("//")) {
+    return next;
+  }
+  return "/staff";
+}
+
 export function StaffLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [role, setRole] = useState<StaffRole | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +51,8 @@ export function StaffLoginForm() {
         method: "POST",
         body: JSON.stringify({ accessCode: accessCode.trim(), role }),
       });
-      router.push("/staff");
+      // 로그인 전에 보려던 화면이 있으면 그곳으로 돌아간다.
+      router.push(safeNext(searchParams.get("next")));
       router.refresh();
     } catch (error) {
       toast.error(

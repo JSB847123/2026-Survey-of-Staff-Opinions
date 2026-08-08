@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getStaffSession } from "@/lib/session";
 import {
   Card,
   CardContent,
@@ -40,8 +40,8 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default async function AuditPage() {
-  const session = await getSession();
-  if (!session || session.kind !== "staff" || session.role !== "admin") {
+  const session = await getStaffSession();
+  if (!session || session.role !== "admin") {
     redirect("/staff");
   }
 

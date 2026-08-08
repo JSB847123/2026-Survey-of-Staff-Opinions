@@ -36,7 +36,16 @@ export const UNSUPPORTED_FILE_MESSAGE = `지원하지 않는 파일 형식입니
 
 export const CHECKBOX_CHARS = ["□", "☐", "☑", "■", "▢"] as const;
 
-export const SESSION_COOKIE_NAME = "survey_session";
+/**
+ * 운영자와 응답자는 서로 다른 쿠키를 사용한다.
+ * (같은 쿠키를 공유하면 한 브라우저에서 응답자 화면을 확인하는 순간
+ *  운영자 세션이 덮어써져 다시 로그인해야 하는 문제가 생긴다.)
+ */
+export const STAFF_SESSION_COOKIE = "staff_session";
+export const RESPONDENT_SESSION_COOKIE = "respondent_session";
+
+/** 역할 분리 이전에 쓰던 쿠키 — 남아 있으면 정리한다. */
+export const LEGACY_SESSION_COOKIE = "survey_session";
 
 export const STAFF_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8; // 8시간
 export const RESPONDENT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 2; // 2시간

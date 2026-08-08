@@ -2,7 +2,9 @@ import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import {
-  SESSION_COOKIE_NAME,
+  LEGACY_SESSION_COOKIE,
+  RESPONDENT_SESSION_COOKIE,
+  STAFF_SESSION_COOKIE,
   STAFF_SESSION_MAX_AGE_SECONDS,
   RESPONDENT_SESSION_MAX_AGE_SECONDS,
 } from "./constants";
@@ -56,11 +58,26 @@ export async function verifySessionToken(
   }
 }
 
-export async function getSession(): Promise<Session | null> {
+export function cookieNameFor(kind: Session["kind"]): string {
+  return kind === "staff" ? STAFF_SESSION_COOKIE : RESPONDENT_SESSION_COOKIE;
+}
+
+/** 운영자 세션 — 응답자 세션과 독립적으로 유지된다. */
+export async function getStaffSession(): Promise<StaffSession | null> {
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE_NAME)?.value;
+  const token = store.get(STAFF_SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const session = await verifySessionToken(token);
+  return session?.kind === "staff" ? session : null;
+}
+
+/** 응답자 세션 — 운영자 세션과 독립적으로 유지된다. */
+export async function getRespondentSession(): Promise<RespondentSession | null> {
+  const store = await cookies();
+  const token = store.get(RESPONDENT_SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = await verifySessionToken(token);
+  return session?.kind === "respondent" ? session : null;
 }
 
 export function sessionCookieOptions(maxAgeSeconds: number) {
@@ -80,10 +97,26 @@ export async function setSessionCookie(session: Session): Promise<void> {
       ? STAFF_SESSION_MAX_AGE_SECONDS
       : RESPONDENT_SESSION_MAX_AGE_SECONDS;
   const store = await cookies();
-  store.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(maxAge));
+  store.set(cookieNameFor(session.kind), token, sessionCookieOptions(maxAge));
+  // 역할 분리 이전 쿠키가 남아 있으면 함께 정리한다.
+  if (store.get(LEGACY_SESSION_COOKIE)) {
+    store.set(LEGACY_SESSION_COOKIE, "", {
+      ...sessionCookieOptions(0),
+      maxAge: 0,
+    });
+  }
 }
 
-export async function clearSessionCookie(): Promise<void> {
+/** 해당 역할의 세션만 종료한다 (다른 역할 세션은 유지). */
+export async function clearSessionCookie(
+  kind: Session["kind"],
+): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE_NAME, "", { ...sessionCookieOptions(0), maxAge: 0 });
+  store.set(cookieNameFor(kind), "", { ...sessionCookieOptions(0), maxAge: 0 });
+  if (store.get(LEGACY_SESSION_COOKIE)) {
+    store.set(LEGACY_SESSION_COOKIE, "", {
+      ...sessionCookieOptions(0),
+      maxAge: 0,
+    });
+  }
 }

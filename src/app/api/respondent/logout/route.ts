@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST() {
   return handleApi(async () => {
-    await clearSessionCookie();
+    await clearSessionCookie("respondent");
     return { ok: true };
   });
 }

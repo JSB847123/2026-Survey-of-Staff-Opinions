@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getRespondentSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,8 +20,8 @@ export const metadata: Metadata = { title: "설문 목록" };
 export const dynamic = "force-dynamic";
 
 export default async function RespondentSurveysPage() {
-  const session = await getSession();
-  if (!session || session.kind !== "respondent") {
+  const session = await getRespondentSession();
+  if (!session) {
     redirect("/respondent/login");
   }
 

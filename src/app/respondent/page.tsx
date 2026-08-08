@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClipboardList, LogIn, UserRoundPlus } from "lucide-react";
-import { getSession } from "@/lib/session";
+import { getRespondentSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,8 +17,8 @@ export const metadata: Metadata = { title: "설문 응답" };
 export const dynamic = "force-dynamic";
 
 export default async function RespondentEntryPage() {
-  const session = await getSession();
-  if (session?.kind === "respondent") {
+  const session = await getRespondentSession();
+  if (session !== null) {
     redirect("/respondent/surveys");
   }
 

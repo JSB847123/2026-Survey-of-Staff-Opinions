@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { getSession } from "@/lib/session";
+import { getStaffSession } from "@/lib/session";
 import { describeStorage } from "@/lib/storage";
 import { getMaxRespondents } from "@/lib/settings";
 import {
@@ -33,8 +33,8 @@ function EnvStatus({ name, set }: { name: string; set: boolean }) {
 }
 
 export default async function SettingsPage() {
-  const session = await getSession();
-  if (!session || session.kind !== "staff" || session.role !== "admin") {
+  const session = await getStaffSession();
+  if (!session || session.role !== "admin") {
     redirect("/staff");
   }
 
