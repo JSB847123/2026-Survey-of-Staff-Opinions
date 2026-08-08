@@ -4,7 +4,7 @@ import { handleApi } from "@/lib/api";
 import { requireStaff } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-import { analysisRunSchema } from "@/lib/validation";
+import { analysisProviderSchema, analysisRunSchema } from "@/lib/validation";
 import { computeSurveyStats } from "@/lib/stats";
 import {
   analysisResultToMarkdown,
@@ -28,6 +28,43 @@ export async function GET(_request: NextRequest, { params }: Params) {
       take: 20,
     });
     return { analyses };
+  });
+}
+
+/**
+ * 분석 결과·기록 초기화.
+ * ?provider=openai|deepseek 를 주면 해당 모델 기록만 삭제하고,
+ * 없으면 이 설문의 모든 분석 기록을 삭제한다.
+ */
+export async function DELETE(request: NextRequest, { params }: Params) {
+  return handleApi(async () => {
+    const session = await requireStaff();
+    const { id } = await params;
+
+    const survey = await prisma.survey.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!survey) throw new AppError(404, "설문을 찾을 수 없습니다.");
+
+    const providerParam = request.nextUrl.searchParams.get("provider");
+    const provider = providerParam
+      ? analysisProviderSchema.parse(providerParam)
+      : undefined;
+
+    const result = await prisma.analysis.deleteMany({
+      where: { surveyId: id, ...(provider ? { provider } : {}) },
+    });
+
+    await logAudit({
+      actorRole: session.role,
+      action: "analysis.reset",
+      targetType: "survey",
+      targetId: id,
+      metadata: { provider: provider ?? "all", deleted: result.count },
+    });
+
+    return { deleted: result.count };
   });
 }
 

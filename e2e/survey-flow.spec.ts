@@ -1,5 +1,54 @@
 import { test, expect, type Page } from "@playwright/test";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { buildDocx } from "../tests/helpers/build-files";
+
+/**
+ * AI를 실제로 호출하지 않고 분석 기록이 있는 상태를 만든다.
+ * (초기화 UI 검증용)
+ */
+async function seedAnalyses(surveyId: string) {
+  const prisma = new PrismaClient();
+  const resultJson = {
+    overallTrend: "E2E 테스트용 분석 결과",
+    positives: [],
+    improvements: [],
+    keyChoiceFindings: [],
+    recurringThemes: [],
+    alignmentAndConflicts: [],
+    organizationalSignals: [],
+    actionableRecommendations: [],
+    interpretationCautions: [],
+  } as unknown as Prisma.InputJsonValue;
+
+  try {
+    await prisma.analysis.createMany({
+      data: [
+        {
+          surveyId,
+          provider: "openai",
+          model: "gpt-5.6-luna",
+          resultJson,
+          resultMarkdown: "## E2E",
+          responseCount: 1,
+          surveyVersion: 1,
+          createdByRole: "admin",
+        },
+        {
+          surveyId,
+          provider: "deepseek",
+          model: "deepseek-v4-flash",
+          resultJson,
+          resultMarkdown: "## E2E",
+          responseCount: 1,
+          surveyVersion: 1,
+          createdByRole: "admin",
+        },
+      ],
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 
 /**
  * E2E 시나리오:
@@ -622,6 +671,61 @@ test.describe.serial("설문 전체 흐름", () => {
 
     await respondentContext.close();
     await context.close();
+  });
+
+  test("AI 분석 결과·기록을 초기화할 수 있다", async ({ page }) => {
+    expect(surveyUrl).toBeTruthy();
+    await staffLogin(page, "admin", ADMIN_CODE);
+
+    const surveyId = surveyUrl.split("/").pop()!;
+
+    // 기록이 없을 때도 초기화 API는 안전하게 동작한다
+    const emptyReset = await page.request.delete(
+      `/api/surveys/${surveyId}/analysis`,
+    );
+    expect(emptyReset.ok()).toBe(true);
+    expect((await emptyReset.json()).deleted).toBe(0);
+
+    // 잘못된 provider는 거부된다
+    const badProvider = await page.request.delete(
+      `/api/surveys/${surveyId}/analysis?provider=unknown`,
+    );
+    expect(badProvider.status()).toBe(400);
+
+    // 기록이 없으면 결과/기록 카드가 보이지 않는다
+    await page.goto(`${surveyUrl}/analysis`);
+    await expect(page.getByText("AI 설문 분석")).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]', { hasText: "분석 기록" }),
+    ).toHaveCount(0);
+
+    // AI를 호출하지 않고 분석 기록을 직접 넣어 초기화 UI를 검증한다
+    await seedAnalyses(surveyId);
+    await page.reload();
+    await expect(
+      page.locator('[data-slot="card-title"]', { hasText: "분석 결과" }),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]', { hasText: "분석 기록" }),
+    ).toBeVisible();
+
+    // GPT 결과만 삭제 → DeepSeek 기록은 남는다
+    await page.getByRole("button", { name: "GPT 결과 삭제" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await expect(page.getByText(/분석 기록 1건을 초기화했습니다/)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "DeepSeek 결과 삭제" }),
+    ).toBeVisible();
+
+    // 전체 초기화 → 결과/기록 카드가 사라진다
+    await page.getByRole("button", { name: "전체 초기화" }).click();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await expect(page.getByText(/분석 기록 1건을 초기화했습니다/)).toBeVisible();
+    await page.reload();
+    await expect(
+      page.locator('[data-slot="card-title"]', { hasText: "분석 기록" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("AI 설문 분석")).toBeVisible();
   });
 
   test("정리: 관리자가 테스트 설문·계정 삭제", async ({ page }) => {

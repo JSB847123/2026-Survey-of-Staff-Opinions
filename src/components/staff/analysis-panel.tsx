@@ -3,8 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Loader2, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +118,34 @@ export function AnalysisPanel({
   const router = useRouter();
   const [analyses, setAnalyses] = useState<AnalysisDto[]>(initialAnalyses);
   const [running, setRunning] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<
+    "all" | "openai" | "deepseek" | null
+  >(null);
+  const [resetting, setResetting] = useState(false);
+
+  /** 분석 결과와 기록을 삭제한다. provider를 주면 해당 모델만 삭제. */
+  const resetAnalyses = async (target: "all" | "openai" | "deepseek") => {
+    setResetting(true);
+    try {
+      const query = target === "all" ? "" : `?provider=${target}`;
+      const result = await apiFetch<{ deleted: number }>(
+        `/api/surveys/${surveyId}/analysis${query}`,
+        { method: "DELETE" },
+      );
+      setAnalyses((prev) =>
+        target === "all" ? [] : prev.filter((a) => a.provider !== target),
+      );
+      toast.success(`분석 기록 ${result.deleted}건을 초기화했습니다.`);
+      setResetTarget(null);
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "초기화에 실패했습니다.",
+      );
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const latestByProvider = (provider: string): AnalysisDto | undefined =>
     analyses.find((a) => a.provider === provider);
@@ -221,8 +259,30 @@ export function AnalysisPanel({
 
       {(openaiLatest || deepseekLatest) && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
             <CardTitle className="text-base">분석 결과</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              {openaiLatest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={resetting || running !== null}
+                  onClick={() => setResetTarget("openai")}
+                >
+                  <Trash2 className="size-4" /> GPT 결과 삭제
+                </Button>
+              )}
+              {deepseekLatest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={resetting || running !== null}
+                  onClick={() => setResetTarget("deepseek")}
+                >
+                  <Trash2 className="size-4" /> DeepSeek 결과 삭제
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs
@@ -274,9 +334,24 @@ export function AnalysisPanel({
 
       {analyses.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">분석 기록</CardTitle>
-            <CardDescription>최근 20건까지 표시됩니다.</CardDescription>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle className="text-base">분석 기록</CardTitle>
+              <CardDescription>최근 20건까지 표시됩니다.</CardDescription>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={resetting || running !== null}
+              onClick={() => setResetTarget("all")}
+            >
+              {resetting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              전체 초기화
+            </Button>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -301,6 +376,34 @@ export function AnalysisPanel({
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog
+        open={resetTarget !== null}
+        onOpenChange={(open) => !open && setResetTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {resetTarget === "all"
+                ? "분석 결과와 기록을 모두 삭제할까요?"
+                : `${resetTarget ? (PROVIDER_LABELS[resetTarget] ?? resetTarget) : ""} 분석 결과를 삭제할까요?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              저장된 분석 결과가 삭제되며 되돌릴 수 없습니다. 설문 응답 자체는
+              삭제되지 않으며, 필요하면 언제든 다시 분석할 수 있습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={resetting}
+              onClick={() => resetTarget && resetAnalyses(resetTarget)}
+            >
+              {resetting ? "삭제 중..." : "삭제"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

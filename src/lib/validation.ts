@@ -106,7 +106,11 @@ export const submitAnswersSchema = z.object({
     .max(100),
 });
 
+export const analysisProviderSchema = z.enum(["openai", "deepseek"], {
+  message: "지원하지 않는 AI provider입니다.",
+});
+
 export const analysisRunSchema = z.object({
-  provider: z.enum(["openai", "deepseek"]),
+  provider: analysisProviderSchema,
   force: z.boolean().optional().default(false),
 });

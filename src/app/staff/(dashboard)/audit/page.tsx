@@ -37,6 +37,11 @@ const ACTION_LABELS: Record<string, string> = {
   "respondent.password_change": "응답자 비밀번호 변경",
   "respondent.delete": "응답자 계정 삭제",
   "analysis.run": "AI 분석 실행",
+  "analysis.reset": "AI 분석 기록 초기화",
+  "settings.max_respondents": "최대 인원 변경",
+  "settings.ai_key_set": "AI API 키 설정",
+  "settings.ai_key_clear": "AI API 키 삭제",
+  "respondent.signup": "응답자 회원 가입",
 };
 
 export default async function AuditPage() {
@@ -84,9 +89,19 @@ export default async function AuditPage() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={log.actorRole === "admin" ? "default" : "secondary"}
+                        variant={
+                          log.actorRole === "admin"
+                            ? "default"
+                            : log.actorRole === "reviewer"
+                              ? "secondary"
+                              : "outline"
+                        }
                       >
-                        {log.actorRole === "admin" ? "관리자" : "확인자"}
+                        {log.actorRole === "admin"
+                          ? "관리자"
+                          : log.actorRole === "reviewer"
+                            ? "확인자"
+                            : "응답자"}
                       </Badge>
                     </TableCell>
                     <TableCell>{ACTION_LABELS[log.action] ?? log.action}</TableCell>
